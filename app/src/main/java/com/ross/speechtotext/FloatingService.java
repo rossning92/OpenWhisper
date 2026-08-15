@@ -14,6 +14,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.provider.Settings;
 import androidx.preference.PreferenceManager;
@@ -64,7 +65,7 @@ public class FloatingService extends Service {
     private WindowManager.LayoutParams params;
 
     private FloatingActionButton floatingView;
-    private FloatingActionButton previewView;
+    private FloatingActionButton termuxScriptView;
     private FloatingActionButton cancelView;
     private WaveformView waveformView;
     private boolean onLeft = true;
@@ -74,12 +75,16 @@ public class FloatingService extends Service {
     private ObjectAnimator spinAnimator;
     private AlertDialog transcriptionErrorDialog;
     private Transcriber failedTranscriber;
-    private boolean failedTranscriptionIsPreview;
+    private boolean failedTranscriptionRunsTermuxScript;
 
     private volatile Transcriber transcriber;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private static final String CHANNEL_ID = "FloatingServiceChannel";
+    private static final String TERMUX_BASH_PATH =
+            "/data/data/com.termux/files/usr/bin/bash";
+    private static final String TERMUX_SCRIPT_PATH =
+            "/data/data/com.termux/files/home/myscripts/bin/handle_transcription.sh";
     private Context themedContext;
     private Notification notification;
 
@@ -167,10 +172,10 @@ public class FloatingService extends Service {
             cancelDictation();
         });
 
-        previewView = createFab(R.drawable.ic_stop);
-        previewView.setVisibility(View.GONE);
-        previewView.setContentDescription("Stop and preview transcription");
-        previewView.setOnClickListener(v -> {
+        termuxScriptView = createFab(R.drawable.ic_terminal);
+        termuxScriptView.setVisibility(View.GONE);
+        termuxScriptView.setContentDescription("Stop and run Termux script");
+        termuxScriptView.setOnClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             if (isDictating && !isTranscribing) finishDictation(true);
         });
@@ -221,7 +226,7 @@ public class FloatingService extends Service {
         };
         floatingView.setOnTouchListener(dragTouchListener);
         waveformView.setOnTouchListener(dragTouchListener);
-        previewView.setOnTouchListener(dragTouchListener);
+        termuxScriptView.setOnTouchListener(dragTouchListener);
         cancelView.setOnTouchListener(dragTouchListener);
 
         applyChildOrder();
@@ -242,13 +247,13 @@ public class FloatingService extends Service {
         container.removeAllViews();
         if (onLeft) {
             container.addView(floatingView, fabLayoutParams());
-            container.addView(previewView, fabLayoutParams());
+            container.addView(termuxScriptView, fabLayoutParams());
             container.addView(waveformView, new LinearLayout.LayoutParams(waveW, waveH));
             container.addView(cancelView, fabLayoutParams());
         } else {
             container.addView(cancelView, fabLayoutParams());
             container.addView(waveformView, new LinearLayout.LayoutParams(waveW, waveH));
-            container.addView(previewView, fabLayoutParams());
+            container.addView(termuxScriptView, fabLayoutParams());
             container.addView(floatingView, fabLayoutParams());
         }
     }
@@ -307,7 +312,7 @@ public class FloatingService extends Service {
         floatingView.setImageResource(R.drawable.ic_send);
         waveformView.clear();
         waveformView.setVisibility(View.VISIBLE);
-        previewView.setVisibility(View.VISIBLE);
+        termuxScriptView.setVisibility(View.VISIBLE);
         cancelView.setVisibility(View.VISIBLE);
         repinToEdge();
         startTranscriber();
@@ -325,7 +330,7 @@ public class FloatingService extends Service {
         finishDictation(false);
     }
 
-    private void finishDictation(boolean previewOnly) {
+    private void finishDictation(boolean runTermuxScript) {
         Transcriber current = transcriber;
         if (current != null) current.stop();
         restoreNonMicrophoneForegroundType();
@@ -334,10 +339,10 @@ public class FloatingService extends Service {
             showTranscriptionError(new Exception("Transcription did not start"), null);
             return;
         }
-        finishTranscription(current, previewOnly);
+        finishTranscription(current, runTermuxScript);
     }
 
-    private void finishTranscription(Transcriber current, boolean previewOnly) {
+    private void finishTranscription(Transcriber current, boolean runTermuxScript) {
         enterTranscribingMode();
         String finishingMessage = current.getFinishingMessage();
         if (finishingMessage != null) {
@@ -348,8 +353,8 @@ public class FloatingService extends Service {
                 String text = current.finish();
                 mainHandler.post(() -> {
                     exitTranscribingMode();
-                    if (previewOnly) {
-                        Toast.makeText(this, text, Toast.LENGTH_LONG).show();
+                    if (runTermuxScript) {
+                        launchTermuxScript(text);
                     } else {
                         deliverTranscription(text);
                     }
@@ -360,10 +365,41 @@ public class FloatingService extends Service {
                     exitTranscribingMode();
                     if (!current.canRetry()) closeTranscriber(current);
                     showTranscriptionError(
-                            e, current.canRetry() ? current : null, previewOnly);
+                            e, current.canRetry() ? current : null, runTermuxScript);
                 });
             }
         });
+    }
+
+    private void launchTermuxScript(String text) {
+        if (checkSelfPermission(TermuxPermissionActivity.RUN_COMMAND_PERMISSION)
+                != PackageManager.PERMISSION_GRANTED) {
+            Intent permissionIntent = new Intent(this, TermuxPermissionActivity.class);
+            permissionIntent.putExtra(TermuxPermissionActivity.EXTRA_TRANSCRIPTION, text);
+            permissionIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(permissionIntent);
+            return;
+        }
+        runTermuxScript(this, text);
+    }
+
+    static void runTermuxScript(Context context, String text) {
+        Intent intent = new Intent("com.termux.RUN_COMMAND");
+        intent.setClassName("com.termux", "com.termux.app.RunCommandService");
+        intent.putExtra("com.termux.RUN_COMMAND_PATH", TERMUX_BASH_PATH);
+        intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS",
+                new String[] { TERMUX_SCRIPT_PATH, text });
+        intent.putExtra("com.termux.RUN_COMMAND_WORKDIR",
+                "/data/data/com.termux/files/home/myscripts");
+        intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", false);
+        // Opens TermuxActivity and switches to the new command session.
+        intent.putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0");
+        try {
+            context.startService(intent);
+        } catch (Exception e) {
+            Toast.makeText(context, "Unable to open Termux: " + e.getMessage(),
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private void showTranscriptionError(Exception error, Transcriber retryableTranscriber) {
@@ -371,9 +407,9 @@ public class FloatingService extends Service {
     }
 
     private void showTranscriptionError(
-            Exception error, Transcriber retryableTranscriber, boolean previewOnly) {
+            Exception error, Transcriber retryableTranscriber, boolean runTermuxScript) {
         failedTranscriber = retryableTranscriber;
-        failedTranscriptionIsPreview = previewOnly;
+        failedTranscriptionRunsTermuxScript = runTermuxScript;
 
         TextView messageView = new TextView(themedContext);
         int padding = (int) (24 * getResources().getDisplayMetrics().density);
@@ -394,7 +430,7 @@ public class FloatingService extends Service {
             builder.setPositiveButton("Retry", (d, which) -> {
                 transcriptionErrorDialog = null;
                 failedTranscriber = null;
-                finishTranscription(retryableTranscriber, failedTranscriptionIsPreview);
+                finishTranscription(retryableTranscriber, failedTranscriptionRunsTermuxScript);
             });
         }
         AlertDialog dialog = builder.create();
@@ -443,7 +479,7 @@ public class FloatingService extends Service {
         waveformView.setVisibility(View.GONE);
         isDictating = false;
         resetFabToDefault();
-        previewView.setVisibility(View.GONE);
+        termuxScriptView.setVisibility(View.GONE);
         cancelView.setVisibility(View.GONE);
         repinToEdge();
     }

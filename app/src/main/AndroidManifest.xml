@@ -8,6 +8,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+    <queries>
+        <package android:name="com.termux" />
+    </queries>
     <application android:label="Speech To Text" android:icon="@mipmap/ic_launcher" android:theme="@android:style/Theme.DeviceDefault">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
@@ -17,6 +21,10 @@
         </activity>
         <activity android:name=".SettingsActivity" android:exported="false"
             android:theme="@style/Theme.Material3.DayNight" />
+        <activity
+            android:name=".TermuxPermissionActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.DeviceDefault.Dialog.NoActionBar" />
         <service android:name=".FloatingService" android:exported="false"
             android:foregroundServiceType="microphone|specialUse">
             <property
