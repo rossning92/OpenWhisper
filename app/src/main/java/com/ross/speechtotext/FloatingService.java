@@ -46,12 +46,21 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class FloatingService extends Service {
+    static boolean isFeatureEnabled(Context context) {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(MainActivity.KEY_FEATURE_ENABLED, true);
+    }
+
     static void startIfReady(Context context) {
         String key = PreferenceManager.getDefaultSharedPreferences(context)
                 .getString(MainActivity.KEY_OPENAI_API_KEY, "");
-        if (Settings.canDrawOverlays(context) && !key.isEmpty()) {
+        if (isFeatureEnabled(context) && Settings.canDrawOverlays(context) && !key.isEmpty()) {
             context.startForegroundService(new Intent(context, FloatingService.class));
         }
+    }
+
+    static void stop(Context context) {
+        context.stopService(new Intent(context, FloatingService.class));
     }
 
     private static FloatingService instance;

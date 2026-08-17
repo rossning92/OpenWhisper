@@ -32,6 +32,20 @@ public class SettingsActivity extends AppCompatActivity {
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             setPreferencesFromResource(R.xml.preferences, rootKey);
+            SwitchPreferenceCompat featurePref = findPreference(MainActivity.KEY_FEATURE_ENABLED);
+            if (featurePref != null) {
+                featurePref.setOnPreferenceChangeListener((pref, newValue) -> {
+                    if ((Boolean) newValue) {
+                        // Preference listeners run before the new value is persisted, so
+                        // defer the readiness check until the switch has been saved.
+                        requireActivity().getWindow().getDecorView().post(
+                                () -> FloatingService.startIfReady(requireContext()));
+                    } else {
+                        FloatingService.stop(requireContext());
+                    }
+                    return true;
+                });
+            }
             EditTextPreference apiKeyPref = findPreference(MainActivity.KEY_OPENAI_API_KEY);
             if (apiKeyPref != null) {
                 apiKeyPref.setSummaryProvider(pref -> {

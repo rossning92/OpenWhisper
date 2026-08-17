@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <SwitchPreferenceCompat
+        android:key="feature_enabled"
+        android:title="Enable Speech To Text"
+        android:summary="Show the floating dictation button and run at startup"
+        android:defaultValue="true" />
+
     <PreferenceCategory android:title="Provider">
         <EditTextPreference
             android:key="openai_api_key"
