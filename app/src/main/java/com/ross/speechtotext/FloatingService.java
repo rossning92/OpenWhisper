@@ -54,7 +54,9 @@ public class FloatingService extends Service {
     static void startIfReady(Context context) {
         String key = PreferenceManager.getDefaultSharedPreferences(context)
                 .getString(MainActivity.KEY_OPENAI_API_KEY, "");
-        if (isFeatureEnabled(context) && Settings.canDrawOverlays(context) && !key.isEmpty()) {
+        boolean canShowOverlay = Settings.canDrawOverlays(context)
+                || TypeAccessibilityService.getInstance() != null;
+        if (isFeatureEnabled(context) && canShowOverlay && !key.isEmpty()) {
             context.startForegroundService(new Intent(context, FloatingService.class));
         }
     }
@@ -70,6 +72,7 @@ public class FloatingService extends Service {
     }
 
     private WindowManager windowManager;
+    private boolean overlayAttached;
     private LinearLayout container;
     private WindowManager.LayoutParams params;
 
@@ -159,12 +162,8 @@ public class FloatingService extends Service {
                 .build();
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
 
-        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         themedContext = com.google.android.material.color.DynamicColors.wrapContextIfAvailable(
                 new ContextThemeWrapper(this, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar));
-
-        int layoutType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
-        int flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
 
         float density = getResources().getDisplayMetrics().density;
         waveW = (int) (72 * density);
@@ -240,9 +239,42 @@ public class FloatingService extends Service {
 
         applyChildOrder();
 
-        params = createOverlayLayoutParams(layoutType, flags);
+        TypeAccessibilityService accessibilityService = TypeAccessibilityService.getInstance();
+        if (accessibilityService != null) {
+            attachOverlay(accessibilityService, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY);
+        } else if (Settings.canDrawOverlays(this)) {
+            attachOverlay(this, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+        }
+    }
+
+    private void attachOverlay(Context windowContext, int layoutType) {
+        windowManager = (WindowManager) windowContext.getSystemService(WINDOW_SERVICE);
+        params = createOverlayLayoutParams(layoutType, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
         windowManager.addView(container, params);
+        overlayAttached = true;
         updatePositionFromPrefs();
+    }
+
+    private void detachOverlay() {
+        if (overlayAttached) windowManager.removeView(container);
+        overlayAttached = false;
+    }
+
+    void onAccessibilityServiceConnected(TypeAccessibilityService service) {
+        if (overlayAttached
+                && params.type == WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY) return;
+        detachOverlay();
+        attachOverlay(service, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY);
+    }
+
+    void onAccessibilityServiceDisconnected() {
+        // AccessibilityService and FloatingService callbacks run on the main thread.
+        if (!overlayAttached
+                || params.type != WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY) return;
+        detachOverlay();
+        if (Settings.canDrawOverlays(this)) {
+            attachOverlay(this, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+        }
     }
 
     private LinearLayout.LayoutParams fabLayoutParams() {
@@ -655,6 +687,6 @@ public class FloatingService extends Service {
         if (current != null) current.stop();
         closeTranscriber(current);
         executor.shutdownNow();
-        if (container != null) windowManager.removeView(container);
+        if (container != null) detachOverlay();
     }
 }

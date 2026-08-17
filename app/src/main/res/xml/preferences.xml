@@ -37,7 +37,7 @@
         <SwitchPreferenceCompat
             android:key="accessibility_status"
             android:title="Accessibility Service"
-            android:summary="Type dictated text into focused fields"
+            android:summary="Types dictated text into focused fields. When enabled, the floating control uses a trusted accessibility overlay so protected screens, such as browser permission prompts, remain usable. When disabled, the control uses Draw over other apps instead."
             android:persistent="false" />
     </PreferenceCategory>
 </PreferenceScreen>

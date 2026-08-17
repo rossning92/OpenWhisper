@@ -1,10 +1,8 @@
 package com.ross.speechtotext;
 
-import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.text.TextUtils;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.EditTextPreference;
@@ -73,11 +71,7 @@ public class SettingsActivity extends AppCompatActivity {
         private void updateAccessibilityStatus() {
             SwitchPreferenceCompat pref = findPreference("accessibility_status");
             if (pref == null) return;
-            String enabled = Settings.Secure.getString(
-                    requireContext().getContentResolver(),
-                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-            String component = new ComponentName(requireContext(), TypeAccessibilityService.class).flattenToString();
-            pref.setChecked(!TextUtils.isEmpty(enabled) && enabled.contains(component));
+            pref.setChecked(TypeAccessibilityService.isEnabled(requireContext()));
         }
 
     }

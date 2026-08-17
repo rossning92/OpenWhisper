@@ -1,17 +1,34 @@
 package com.ross.speechtotext;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.accessibilityservice.InputMethod;
+import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
 
 public class TypeAccessibilityService extends AccessibilityService {
     private static TypeAccessibilityService instance;
 
     public static TypeAccessibilityService getInstance() {
         return instance;
+    }
+
+    public static boolean isEnabled(Context context) {
+        AccessibilityManager manager =
+                (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
+        for (AccessibilityServiceInfo service : manager.getEnabledAccessibilityServiceList(
+                AccessibilityServiceInfo.FEEDBACK_ALL_MASK)) {
+            if (context.getPackageName().equals(service.getResolveInfo().serviceInfo.packageName)
+                    && TypeAccessibilityService.class.getName().equals(
+                            service.getResolveInfo().serviceInfo.name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Holding Space past this delay toggles dictation instead of typing a space.
@@ -70,6 +87,9 @@ public class TypeAccessibilityService extends AccessibilityService {
     public void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
+        FloatingService.startIfReady(this);
+        FloatingService floatingService = FloatingService.getInstance();
+        if (floatingService != null) floatingService.onAccessibilityServiceConnected(this);
     }
 
     @Override
@@ -82,6 +102,8 @@ public class TypeAccessibilityService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
+        FloatingService floatingService = FloatingService.getInstance();
+        if (floatingService != null) floatingService.onAccessibilityServiceDisconnected();
         super.onDestroy();
         instance = null;
     }
