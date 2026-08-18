@@ -545,8 +545,6 @@ public class FloatingService extends Service {
     private Transcriber createTranscriber() {
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         String apiKey = preferences.getString(MainActivity.KEY_OPENAI_API_KEY, "");
-        String mode = preferences.getString(
-                MainActivity.KEY_TRANSCRIPTION_MODE, MainActivity.TRANSCRIPTION_MODE_UPLOAD);
         Transcriber[] session = new Transcriber[1];
         Transcriber.Listener listener = new Transcriber.Listener() {
             @Override
@@ -565,12 +563,8 @@ public class FloatingService extends Service {
                 });
             }
         };
-        if (MainActivity.TRANSCRIPTION_MODE_REALTIME.equals(mode)) {
-            session[0] = new RealtimeTranscriber(apiKey, listener);
-        } else {
-            session[0] = new UploadTranscriber(
-                    apiKey, getAudioBitrate(), new File(getCacheDir(), "recording.m4a"), listener);
-        }
+        session[0] = new UploadTranscriber(
+                apiKey, getAudioBitrate(), new File(getCacheDir(), "recording.m4a"), listener);
         return session[0];
     }
 
