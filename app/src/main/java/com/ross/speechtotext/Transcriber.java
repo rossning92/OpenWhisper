@@ -11,6 +11,10 @@ interface Transcriber extends AutoCloseable {
 
     void start() throws Exception;
 
+    void pause() throws Exception;
+
+    void resume() throws Exception;
+
     void stop();
 
     String finish() throws Exception;

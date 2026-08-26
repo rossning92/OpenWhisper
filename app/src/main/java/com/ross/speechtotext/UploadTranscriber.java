@@ -31,6 +31,7 @@ final class UploadTranscriber implements Transcriber {
     private final Listener listener;
 
     private volatile boolean recording;
+    private volatile boolean paused;
     private MediaRecorder recorder;
     private Thread amplitudeThread;
 
@@ -60,8 +61,29 @@ final class UploadTranscriber implements Transcriber {
     }
 
     @Override
+    public void pause() {
+        MediaRecorder currentRecorder = recorder;
+        if (currentRecorder == null || !recording) {
+            throw new IllegalStateException("Recording is not active");
+        }
+        currentRecorder.pause();
+        paused = true;
+    }
+
+    @Override
+    public void resume() {
+        MediaRecorder currentRecorder = recorder;
+        if (currentRecorder == null || !recording) {
+            throw new IllegalStateException("Recording is not active");
+        }
+        currentRecorder.resume();
+        paused = false;
+    }
+
+    @Override
     public void stop() {
         recording = false;
+        paused = false;
         MediaRecorder currentRecorder = recorder;
         recorder = null;
         if (currentRecorder != null) {
@@ -154,7 +176,7 @@ final class UploadTranscriber implements Transcriber {
     private void pollAmplitude() {
         while (recording) {
             MediaRecorder currentRecorder = recorder;
-            if (currentRecorder != null) {
+            if (currentRecorder != null && !paused) {
                 try {
                     listener.onAmplitude(AudioLevel.fromNormalizedAmplitude(
                             currentRecorder.getMaxAmplitude() / 32767.0));
