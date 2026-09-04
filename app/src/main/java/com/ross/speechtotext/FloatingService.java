@@ -469,12 +469,15 @@ public class FloatingService extends Service {
         intent.putExtra("com.termux.RUN_COMMAND_WORKDIR",
                 "/data/data/com.termux/files/home/myscripts");
         intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", false);
-        // Opens TermuxActivity and switches to the new command session.
-        intent.putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0");
+        // Session actions: 0 switches to the new session and opens Termux; 1 keeps the
+        // current session and opens Termux; 2 switches to the new session without
+        // opening Termux; 3 keeps the current session without opening Termux.
+        intent.putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "2");
         try {
             context.startService(intent);
+            Toast.makeText(context, "Running command in Termux", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            Toast.makeText(context, "Unable to open Termux: " + e.getMessage(),
+            Toast.makeText(context, "Unable to run Termux command: " + e.getMessage(),
                     Toast.LENGTH_LONG).show();
         }
     }
