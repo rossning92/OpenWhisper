@@ -20,6 +20,14 @@
             android:entryValues="@array/transcription_mode_values"
             android:defaultValue="realtime"
             android:summary="%s" />
+        <EditTextPreference
+            android:key="transcription_prompt"
+            android:title="Transcription prompt"
+            android:dialogTitle="Transcription prompt"
+            android:dialogMessage="This text is sent directly to the transcription model to provide language, vocabulary, spelling, punctuation, or formatting guidance."
+            android:defaultValue="@string/default_transcription_prompt"
+            android:summary="Customize transcription instructions and context"
+            android:singleLine="false" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Recording">

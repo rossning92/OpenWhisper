@@ -23,22 +23,27 @@ final class UploadTranscriber implements Transcriber {
     private static final int API_CONNECT_TIMEOUT_MS = 10_000;
     private static final int API_READ_TIMEOUT_MS = 20_000;
     private static final String MODEL = "gpt-4o-mini-transcribe";
-    private static final String PROMPT = "audio is english and simplified chinese.";
-
     private final String apiKey;
     private final int audioBitrate;
     private final File audioFile;
     private final Listener listener;
+    private final String prompt;
 
     private volatile boolean recording;
     private volatile boolean paused;
     private MediaRecorder recorder;
     private Thread amplitudeThread;
 
-    UploadTranscriber(String apiKey, int audioBitrate, File audioFile, Listener listener) {
+    UploadTranscriber(
+            String apiKey,
+            int audioBitrate,
+            File audioFile,
+            String prompt,
+            Listener listener) {
         this.apiKey = apiKey;
         this.audioBitrate = audioBitrate;
         this.audioFile = audioFile;
+        this.prompt = prompt;
         this.listener = listener;
     }
 
@@ -125,7 +130,7 @@ final class UploadTranscriber implements Transcriber {
         try {
             try (DataOutputStream out = new DataOutputStream(connection.getOutputStream())) {
                 writeFormField(out, boundary, "model", MODEL);
-                writeFormField(out, boundary, "prompt", PROMPT);
+                writeFormField(out, boundary, "prompt", prompt);
 
                 out.writeBytes("--" + boundary + "\r\n");
                 out.writeBytes(

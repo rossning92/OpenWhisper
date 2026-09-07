@@ -27,10 +27,9 @@ final class RealtimeTranscriber implements Transcriber {
     private static final int CONNECT_TIMEOUT_MS = 10_000;
     private static final int TRANSCRIPT_TIMEOUT_MS = 20_000;
     private static final String MODEL = "gpt-live-transcribe";
-    private static final String PROMPT = "Dictation in English or Simplified Chinese.";
-
     private final String apiKey;
     private final Transcriber.Listener listener;
+    private final String prompt;
     private final Object lock = new Object();
     private final ByteArrayOutputStream pendingAudio = new ByteArrayOutputStream();
     private final CountDownLatch connected = new CountDownLatch(1);
@@ -46,8 +45,9 @@ final class RealtimeTranscriber implements Transcriber {
     private final StringBuilder transcript = new StringBuilder();
     private String error;
 
-    RealtimeTranscriber(String apiKey, Transcriber.Listener listener) {
+    RealtimeTranscriber(String apiKey, String prompt, Transcriber.Listener listener) {
         this.apiKey = apiKey;
+        this.prompt = prompt;
         this.listener = listener;
     }
 
@@ -269,7 +269,7 @@ final class RealtimeTranscriber implements Transcriber {
                         .put("format", format)
                         .put("transcription", new JSONObject()
                                 .put("model", MODEL)
-                                .put("prompt", PROMPT)
+                                .put("prompt", prompt)
                                 .put("languages", new org.json.JSONArray()
                                         .put("en")
                                         .put("zh-cn"))

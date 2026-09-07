@@ -2,6 +2,7 @@
 <resources>
     <string name="accessibility_description">Allows Speech To Text to type transcribed text into focused fields and show its floating dictation control as an accessibility overlay. This keeps protected screens, such as browser permission prompts, usable while the control is visible.</string>
     <string name="ime_label">Speech To Text (silent)</string>
+    <string name="default_transcription_prompt">Transcribe accurately in the original language. The speech may contain English, Mandarin, or both. Use Simplified Chinese characters and natural punctuation. Preferred spellings: Claude, Codex, Kubernetes, FFmpeg, Termux.</string>
 
     <string-array name="transcription_mode_entries">
         <item>Realtime API — lower latency</item>
