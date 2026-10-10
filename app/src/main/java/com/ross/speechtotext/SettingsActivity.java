@@ -44,6 +44,16 @@ public class SettingsActivity extends AppCompatActivity {
                     return true;
                 });
             }
+            Preference buttonSizePref = findPreference(MainActivity.KEY_FLOATING_BUTTON_SIZE);
+            if (buttonSizePref != null) {
+                buttonSizePref.setOnPreferenceChangeListener((pref, newValue) -> {
+                    requireActivity().getWindow().getDecorView().post(() -> {
+                        FloatingService service = FloatingService.getInstance();
+                        if (service != null) service.updateControlSize();
+                    });
+                    return true;
+                });
+            }
             EditTextPreference apiKeyPref = findPreference(MainActivity.KEY_OPENAI_API_KEY);
             if (apiKeyPref != null) {
                 apiKeyPref.setSummaryProvider(pref -> {

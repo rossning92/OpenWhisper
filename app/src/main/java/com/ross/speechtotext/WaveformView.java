@@ -17,27 +17,34 @@ public class WaveformView extends View {
     private final float[] displayed = new float[BAR_COUNT];
     private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
-    private final float barWidth;
-    private final float barGap;
-    private final float cornerRadius;
-    private final float minBarHeight;
+    private final float density;
+    private final int surfaceColor;
+    private float barWidth;
+    private float barGap;
+    private float cornerRadius;
+    private float minBarHeight;
 
     public WaveformView(Context context) {
         super(context);
-        float d = context.getResources().getDisplayMetrics().density;
-        barWidth = 3f * d;
-        barGap = 1.5f * d;
-        cornerRadius = 1.5f * d;
-        minBarHeight = 2f * d;
+        density = context.getResources().getDisplayMetrics().density;
         barPaint.setColor(MaterialColors.getColor(context, com.google.android.material.R.attr.colorPrimary, 0));
-        int surfaceColor = MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurfaceContainer, 0);
+        surfaceColor = MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurfaceContainer, 0);
+        setScale(1f);
+        setClipToOutline(true);
+    }
+
+    public void setScale(float scale) {
+        barWidth = 3f * density * scale;
+        barGap = 1.5f * density * scale;
+        cornerRadius = 1.5f * density * scale;
+        minBarHeight = 2f * density * scale;
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(surfaceColor);
-        bg.setCornerRadius(18f * d);
+        bg.setCornerRadius(18f * density * scale);
         setBackground(bg);
-        setElevation(4f * d);
-        setClipToOutline(true);
+        setElevation(4f * density * scale);
+        invalidate();
     }
 
     public void addAmplitude(float amplitude) {

@@ -83,6 +83,7 @@ public class FloatingService extends Service {
     private WaveformView waveformView;
     private boolean onLeft = true;
     private int waveW, waveH;
+    private boolean useSmallControls;
     private boolean isDictating = false;
     private boolean isPaused = false;
     private boolean isTranscribing = false;
@@ -167,9 +168,8 @@ public class FloatingService extends Service {
         themedContext = com.google.android.material.color.DynamicColors.wrapContextIfAvailable(
                 new ContextThemeWrapper(this, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar));
 
-        float density = getResources().getDisplayMetrics().density;
-        waveW = (int) (72 * density);
-        waveH = (int) (40 * density);
+        useSmallControls = readUseSmallControls();
+        updateWaveformDimensions();
 
         floatingView = createFab(R.drawable.ic_graphic_eq);
         floatingView.setHapticFeedbackEnabled(true);
@@ -199,6 +199,7 @@ public class FloatingService extends Service {
         });
 
         waveformView = new WaveformView(themedContext);
+        waveformView.setScale(getControlScale());
         waveformView.setVisibility(View.GONE);
 
         container = new LinearLayout(themedContext);
@@ -315,10 +316,53 @@ public class FloatingService extends Service {
     private FloatingActionButton createFab(int iconRes) {
         FloatingActionButton fab = new FloatingActionButton(themedContext);
         fab.setImageResource(iconRes);
-        fab.setSize(FloatingActionButton.SIZE_MINI);
+        applyFabSize(fab);
         fab.setUseCompatPadding(true);
         fab.setCompatElevation(0f);
         return fab;
+    }
+
+    private boolean readUseSmallControls() {
+        String buttonSize = PreferenceManager.getDefaultSharedPreferences(this).getString(
+                MainActivity.KEY_FLOATING_BUTTON_SIZE,
+                MainActivity.FLOATING_BUTTON_SIZE_NORMAL);
+        return MainActivity.FLOATING_BUTTON_SIZE_SMALL.equals(buttonSize);
+    }
+
+    private int getFabSize() {
+        return useSmallControls
+                ? FloatingActionButton.SIZE_MINI
+                : FloatingActionButton.SIZE_NORMAL;
+    }
+
+    private float getControlScale() {
+        return useSmallControls ? 1f : 1.4f;
+    }
+
+    private void applyFabSize(FloatingActionButton fab) {
+        fab.setSize(getFabSize());
+        fab.setMaxImageSize((int) (24 * getResources().getDisplayMetrics().density
+                * getControlScale()));
+    }
+
+    private void updateWaveformDimensions() {
+        float density = getResources().getDisplayMetrics().density;
+        float scale = getControlScale();
+        waveW = (int) (72 * density * scale);
+        waveH = (int) (40 * density * scale);
+    }
+
+    void updateControlSize() {
+        useSmallControls = readUseSmallControls();
+        applyFabSize(floatingView);
+        applyFabSize(termuxScriptView);
+        applyFabSize(pauseView);
+        applyFabSize(cancelView);
+        updateWaveformDimensions();
+        waveformView.setScale(getControlScale());
+        applyChildOrder();
+        container.requestLayout();
+        container.post(this::savePositionToEdge);
     }
 
     private WindowManager.LayoutParams createOverlayLayoutParams(int layoutType, int flags) {

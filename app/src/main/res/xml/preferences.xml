@@ -41,6 +41,17 @@
             android:summary="%s" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Floating Control">
+        <ListPreference
+            android:key="floating_button_size"
+            android:title="Button size"
+            android:dialogTitle="Button size"
+            android:entries="@array/floating_button_size_entries"
+            android:entryValues="@array/floating_button_size_values"
+            android:defaultValue="normal"
+            android:summary="%s" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Text Input">
         <SwitchPreferenceCompat
             android:key="accessibility_status"

@@ -27,4 +27,13 @@
         <item>32000</item>
         <item>64000</item>
     </string-array>
+
+    <string-array name="floating_button_size_entries">
+        <item>Normal</item>
+        <item>Small</item>
+    </string-array>
+    <string-array name="floating_button_size_values">
+        <item>normal</item>
+        <item>small</item>
+    </string-array>
 </resources>
