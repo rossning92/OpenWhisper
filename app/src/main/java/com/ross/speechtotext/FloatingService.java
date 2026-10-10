@@ -78,14 +78,12 @@ public class FloatingService extends Service {
 
     private FloatingActionButton floatingView;
     private FloatingActionButton termuxScriptView;
-    private FloatingActionButton pauseView;
     private FloatingActionButton cancelView;
     private WaveformView waveformView;
     private boolean onLeft = true;
     private int waveW, waveH;
     private boolean useSmallControls;
     private boolean isDictating = false;
-    private boolean isPaused = false;
     private boolean isTranscribing = false;
     private ObjectAnimator spinAnimator;
     private AlertDialog transcriptionErrorDialog;
@@ -190,14 +188,6 @@ public class FloatingService extends Service {
             if (isDictating && !isTranscribing) finishDictation(true);
         });
 
-        pauseView = createFab(R.drawable.ic_pause);
-        pauseView.setVisibility(View.GONE);
-        pauseView.setContentDescription("Pause listening");
-        pauseView.setOnClickListener(v -> {
-            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-            togglePause();
-        });
-
         waveformView = new WaveformView(themedContext);
         waveformView.setScale(getControlScale());
         waveformView.setVisibility(View.GONE);
@@ -246,7 +236,6 @@ public class FloatingService extends Service {
         floatingView.setOnTouchListener(dragTouchListener);
         waveformView.setOnTouchListener(dragTouchListener);
         termuxScriptView.setOnTouchListener(dragTouchListener);
-        pauseView.setOnTouchListener(dragTouchListener);
         cancelView.setOnTouchListener(dragTouchListener);
 
         applyChildOrder();
@@ -301,13 +290,11 @@ public class FloatingService extends Service {
         if (onLeft) {
             container.addView(floatingView, fabLayoutParams());
             container.addView(termuxScriptView, fabLayoutParams());
-            container.addView(pauseView, fabLayoutParams());
             container.addView(waveformView, new LinearLayout.LayoutParams(waveW, waveH));
             container.addView(cancelView, fabLayoutParams());
         } else {
             container.addView(cancelView, fabLayoutParams());
             container.addView(waveformView, new LinearLayout.LayoutParams(waveW, waveH));
-            container.addView(pauseView, fabLayoutParams());
             container.addView(termuxScriptView, fabLayoutParams());
             container.addView(floatingView, fabLayoutParams());
         }
@@ -356,7 +343,6 @@ public class FloatingService extends Service {
         useSmallControls = readUseSmallControls();
         applyFabSize(floatingView);
         applyFabSize(termuxScriptView);
-        applyFabSize(pauseView);
         applyFabSize(cancelView);
         updateWaveformDimensions();
         waveformView.setScale(getControlScale());
@@ -411,32 +397,9 @@ public class FloatingService extends Service {
         waveformView.clear();
         waveformView.setVisibility(View.VISIBLE);
         termuxScriptView.setVisibility(View.VISIBLE);
-        pauseView.setVisibility(View.VISIBLE);
         cancelView.setVisibility(View.VISIBLE);
         repinToEdge();
         startTranscriber();
-    }
-
-    private void togglePause() {
-        if (!isDictating || isTranscribing) return;
-        Transcriber current = transcriber;
-        if (current == null) return;
-        try {
-            if (isPaused) {
-                current.resume();
-                isPaused = false;
-                pauseView.setImageResource(R.drawable.ic_pause);
-                pauseView.setContentDescription("Pause listening");
-            } else {
-                current.pause();
-                isPaused = true;
-                pauseView.setImageResource(R.drawable.ic_play_arrow);
-                pauseView.setContentDescription("Resume listening");
-            }
-        } catch (Exception e) {
-            Toast.makeText(this, "Unable to " + (isPaused ? "resume" : "pause")
-                    + ": " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
     }
 
     private void cancelDictation() {
@@ -602,12 +565,8 @@ public class FloatingService extends Service {
     private void exitDictationMode() {
         waveformView.setVisibility(View.GONE);
         isDictating = false;
-        isPaused = false;
         resetFabToDefault();
         termuxScriptView.setVisibility(View.GONE);
-        pauseView.setImageResource(R.drawable.ic_pause);
-        pauseView.setContentDescription("Pause listening");
-        pauseView.setVisibility(View.GONE);
         cancelView.setVisibility(View.GONE);
         repinToEdge();
     }

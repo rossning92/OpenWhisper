@@ -36,7 +36,6 @@ final class RealtimeTranscriber implements Transcriber {
     private final CountDownLatch completed = new CountDownLatch(1);
 
     private volatile boolean recording;
-    private volatile boolean paused;
     private AudioRecord recorder;
     private Thread audioThread;
     private OkHttpClient httpClient;
@@ -72,7 +71,6 @@ final class RealtimeTranscriber implements Transcriber {
     @Override
     public void stop() {
         recording = false;
-        paused = false;
         releaseRecorder();
         Thread thread = audioThread;
         if (thread != null && thread != Thread.currentThread()) {
@@ -83,18 +81,6 @@ final class RealtimeTranscriber implements Transcriber {
             }
         }
         audioThread = null;
-    }
-
-    @Override
-    public void pause() {
-        if (!recording) throw new IllegalStateException("Recording is not active");
-        paused = true;
-    }
-
-    @Override
-    public void resume() {
-        if (!recording) throw new IllegalStateException("Recording is not active");
-        paused = false;
     }
 
     @Override
@@ -155,7 +141,7 @@ final class RealtimeTranscriber implements Transcriber {
             byte[] buffer = new byte[Math.max(minBuffer, AUDIO_CHUNK_BYTES / 2)];
             while (recording) {
                 int count = recorder.read(buffer, 0, buffer.length);
-                if (count > 0 && !paused) {
+                if (count > 0) {
                     appendAudio(buffer, count);
                     listener.onAmplitude(calculateAmplitude(buffer, count));
                 } else if (count < 0) {
