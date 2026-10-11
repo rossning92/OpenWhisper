@@ -626,6 +626,15 @@ public class FloatingService extends Service {
                     }
                 });
             }
+
+            @Override
+            public void onStopDetected() {
+                mainHandler.post(() -> {
+                    if (isDictating && !isTranscribing && transcriber == session[0]) {
+                        cancelDictation();
+                    }
+                });
+            }
         };
         if (MainActivity.TRANSCRIPTION_MODE_REALTIME.equals(mode)) {
             session[0] = new RealtimeTranscriber(this, apiKey, transcriptionPrompt, listener);

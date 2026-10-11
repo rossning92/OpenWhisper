@@ -251,9 +251,13 @@ final class RealtimeTranscriber implements Transcriber {
         synchronized (lock) {
             currentTranscript = transcript.toString();
         }
-        if (!SendMessageCommand.isAtEnd(currentTranscript)) return;
-        triggerHandled = true;
-        listener.onSendMessageDetected();
+        if (StopCommand.isAtEnd(currentTranscript)) {
+            triggerHandled = true;
+            listener.onStopDetected();
+        } else if (SendMessageCommand.isAtEnd(currentTranscript)) {
+            triggerHandled = true;
+            listener.onSendMessageDetected();
+        }
     }
 
     private static double calculateNormalizedRms(byte[] pcm, int count) {

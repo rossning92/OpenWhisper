@@ -8,6 +8,7 @@ interface Transcriber extends AutoCloseable {
         void onAmplitude(float amplitude);
         void onFailure(String message);
         void onSendMessageDetected();
+        void onStopDetected();
     }
 
     void start() throws Exception;
