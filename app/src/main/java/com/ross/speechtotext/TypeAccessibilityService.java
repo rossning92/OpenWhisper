@@ -109,11 +109,23 @@ public class TypeAccessibilityService extends AccessibilityService {
     }
 
     public boolean typeText(String text) {
-        InputMethod inputMethod = getInputMethod();
-        if (inputMethod == null) return false;
-        InputMethod.AccessibilityInputConnection ic = inputMethod.getCurrentInputConnection();
+        InputMethod.AccessibilityInputConnection ic = getCurrentInputConnection();
         if (ic == null) return false;
         ic.commitText(text, 1, null);
         return true;
+    }
+
+    public boolean sendEnterKey() {
+        InputMethod.AccessibilityInputConnection ic = getCurrentInputConnection();
+        if (ic == null) return false;
+        long time = android.os.SystemClock.uptimeMillis();
+        ic.sendKeyEvent(new KeyEvent(time, time, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0));
+        ic.sendKeyEvent(new KeyEvent(time, time, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0));
+        return true;
+    }
+
+    private InputMethod.AccessibilityInputConnection getCurrentInputConnection() {
+        InputMethod inputMethod = getInputMethod();
+        return inputMethod == null ? null : inputMethod.getCurrentInputConnection();
     }
 }

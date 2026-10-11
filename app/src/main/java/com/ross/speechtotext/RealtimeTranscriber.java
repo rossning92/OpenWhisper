@@ -1,9 +1,16 @@
 package com.ross.speechtotext;
 
+import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder.AudioSource;
 import android.util.Base64;
+
+import com.konovalov.vad.silero.Vad;
+import com.konovalov.vad.silero.VadSilero;
+import com.konovalov.vad.silero.config.FrameSize;
+import com.konovalov.vad.silero.config.Mode;
+import com.konovalov.vad.silero.config.SampleRate;
 
 import org.json.JSONObject;
 
@@ -23,10 +30,15 @@ import okhttp3.WebSocketListener;
  */
 final class RealtimeTranscriber implements Transcriber {
     private static final int SAMPLE_RATE = 24_000;
+    private static final int VAD_SAMPLE_RATE = 16_000;
+    private static final int VAD_FRAME_SAMPLES = 512;
     private static final int AUDIO_CHUNK_BYTES = 4_800;
     private static final int CONNECT_TIMEOUT_MS = 10_000;
     private static final int TRANSCRIPT_TIMEOUT_MS = 20_000;
+    private static final int SPEECH_DURATION_MS = 100;
+    private static final int SILENCE_DURATION_MS = 900;
     private static final String MODEL = "gpt-live-transcribe";
+    private final Context context;
     private final String apiKey;
     private final Transcriber.Listener listener;
     private final String prompt;
@@ -42,9 +54,16 @@ final class RealtimeTranscriber implements Transcriber {
     private WebSocket socket;
     private boolean sessionReady;
     private final StringBuilder transcript = new StringBuilder();
+    private boolean speechDetected;
+    private boolean triggerHandled;
+    private VadSilero vad;
+    private final short[] vadFrame = new short[VAD_FRAME_SAMPLES];
+    private int vadFrameLength;
+    private long resamplePhase;
     private String error;
 
-    RealtimeTranscriber(String apiKey, String prompt, Transcriber.Listener listener) {
+    RealtimeTranscriber(Context context, String apiKey, String prompt, Transcriber.Listener listener) {
+        this.context = context.getApplicationContext();
         this.apiKey = apiKey;
         this.prompt = prompt;
         this.listener = listener;
@@ -62,6 +81,14 @@ final class RealtimeTranscriber implements Transcriber {
                 .header("Authorization", "Bearer " + apiKey)
                 .build();
 
+        vad = Vad.builder()
+                .setContext(context)
+                .setSampleRate(SampleRate.SAMPLE_RATE_16K)
+                .setFrameSize(FrameSize.FRAME_SIZE_512)
+                .setMode(Mode.NORMAL)
+                .setSpeechDurationMs(SPEECH_DURATION_MS)
+                .setSilenceDurationMs(SILENCE_DURATION_MS)
+                .build();
         recording = true;
         socket = httpClient.newWebSocket(request, new SocketListener());
         audioThread = new Thread(this::captureAudio, "RealtimeAudio");
@@ -118,6 +145,9 @@ final class RealtimeTranscriber implements Transcriber {
             currentClient.dispatcher().executorService().shutdown();
             currentClient.connectionPool().evictAll();
         }
+        VadSilero currentVad = vad;
+        vad = null;
+        if (currentVad != null) currentVad.close();
     }
 
     private void captureAudio() {
@@ -143,7 +173,9 @@ final class RealtimeTranscriber implements Transcriber {
                 int count = recorder.read(buffer, 0, buffer.length);
                 if (count > 0) {
                     appendAudio(buffer, count);
-                    listener.onAmplitude(calculateAmplitude(buffer, count));
+                    double rms = calculateNormalizedRms(buffer, count);
+                    listener.onAmplitude(AudioLevel.fromNormalizedAmplitude(rms));
+                    processVad(buffer, count);
                 } else if (count < 0) {
                     throw new Exception("Microphone read failed: " + count);
                 }
@@ -193,7 +225,38 @@ final class RealtimeTranscriber implements Transcriber {
         }
     }
 
-    private static float calculateAmplitude(byte[] pcm, int count) {
+    private void processVad(byte[] pcm, int count) {
+        VadSilero currentVad = vad;
+        if (currentVad == null) return;
+        for (int i = 0; i + 1 < count; i += 2) {
+            short sample = (short) ((pcm[i] & 0xff) | (pcm[i + 1] << 8));
+            resamplePhase += VAD_SAMPLE_RATE;
+            if (resamplePhase < SAMPLE_RATE) continue;
+            resamplePhase -= SAMPLE_RATE;
+            vadFrame[vadFrameLength++] = sample;
+            if (vadFrameLength == vadFrame.length) {
+                updateTrigger(currentVad.isSpeech(vadFrame));
+                vadFrameLength = 0;
+            }
+        }
+    }
+
+    private void updateTrigger(boolean isSpeech) {
+        if (isSpeech) {
+            speechDetected = true;
+            return;
+        }
+        if (!speechDetected || triggerHandled) return;
+        String currentTranscript;
+        synchronized (lock) {
+            currentTranscript = transcript.toString();
+        }
+        if (!SendMessageCommand.isAtEnd(currentTranscript)) return;
+        triggerHandled = true;
+        listener.onSendMessageDetected();
+    }
+
+    private static double calculateNormalizedRms(byte[] pcm, int count) {
         long sumSquares = 0;
         int samples = count / 2;
         for (int i = 0; i + 1 < count; i += 2) {
@@ -201,8 +264,7 @@ final class RealtimeTranscriber implements Transcriber {
             sumSquares += (long) sample * sample;
         }
         if (samples == 0) return 0;
-        double rms = Math.sqrt(sumSquares / (double) samples);
-        return AudioLevel.fromNormalizedAmplitude(rms / 32768.0);
+        return Math.sqrt(sumSquares / (double) samples) / 32768.0;
     }
 
     private synchronized void releaseRecorder() {

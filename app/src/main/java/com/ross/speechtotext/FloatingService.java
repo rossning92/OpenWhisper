@@ -89,6 +89,7 @@ public class FloatingService extends Service {
     private AlertDialog transcriptionErrorDialog;
     private Transcriber failedTranscriber;
     private boolean failedTranscriptionRunsTermuxScript;
+    private boolean sendMessageAfterTranscription;
 
     private volatile Transcriber transcriber;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -392,6 +393,7 @@ public class FloatingService extends Service {
     }
 
     private void enterDictationMode() {
+        sendMessageAfterTranscription = false;
         isDictating = true;
         floatingView.setImageResource(R.drawable.ic_send);
         waveformView.clear();
@@ -440,8 +442,9 @@ public class FloatingService extends Service {
                     if (runTermuxScript) {
                         launchTermuxScript(text);
                     } else {
-                        deliverTranscription(text);
+                        deliverTranscription(text, sendMessageAfterTranscription);
                     }
+                    sendMessageAfterTranscription = false;
                     closeTranscriber(current);
                 });
             } catch (Exception e) {
@@ -613,9 +616,19 @@ public class FloatingService extends Service {
                     if (transcriber == session[0]) handleTranscriberFailure(message);
                 });
             }
+
+            @Override
+            public void onSendMessageDetected() {
+                mainHandler.post(() -> {
+                    if (isDictating && !isTranscribing && transcriber == session[0]) {
+                        sendMessageAfterTranscription = true;
+                        finishDictation();
+                    }
+                });
+            }
         };
         if (MainActivity.TRANSCRIPTION_MODE_REALTIME.equals(mode)) {
-            session[0] = new RealtimeTranscriber(apiKey, transcriptionPrompt, listener);
+            session[0] = new RealtimeTranscriber(this, apiKey, transcriptionPrompt, listener);
         } else {
             session[0] = new UploadTranscriber(
                     apiKey,
@@ -644,12 +657,22 @@ public class FloatingService extends Service {
         }
     }
 
-    private void deliverTranscription(String text) {
-        boolean typed = typeViaAccessibility(text);
+    private void deliverTranscription(String text, boolean sendMessage) {
+        String deliveredText = sendMessage ? SendMessageCommand.removeFromEnd(text) : text;
+        boolean typed = typeViaAccessibility(deliveredText);
         if (!typed) {
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-            clipboard.setPrimaryClip(ClipData.newPlainText("transcription", text));
+            clipboard.setPrimaryClip(ClipData.newPlainText("transcription", deliveredText));
             Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (sendMessage) {
+            mainHandler.postDelayed(() -> {
+                TypeAccessibilityService service = TypeAccessibilityService.getInstance();
+                if (service == null || !service.sendEnterKey()) {
+                    Toast.makeText(this, "Message transcribed; press Send", Toast.LENGTH_SHORT).show();
+                }
+            }, 150);
         }
     }
 
