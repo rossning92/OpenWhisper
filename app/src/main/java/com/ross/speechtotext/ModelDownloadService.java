@@ -5,6 +5,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import java.io.File;
@@ -21,7 +22,8 @@ import okhttp3.Response;
 public final class ModelDownloadService extends Service {
     private static final String CHANNEL = "OfflineModelDownload";
     private static final int NOTIFICATION = 2;
-    private static final String CANCEL = "cancel";
+    static final String CANCEL = "cancel";
+    private static final String MODEL_KEY = "model_key";
     static volatile boolean downloading;
     private static volatile String status;
     private static volatile OfflineModel statusModel;
@@ -29,8 +31,19 @@ public final class ModelDownloadService extends Service {
     private volatile Call call;
     private volatile boolean cancelled;
 
+    static void startDownload(Context context, OfflineModel model) {
+        // A retry must not reuse the previous attempt's error as its starting state.
+        status = null;
+        context.startForegroundService(new Intent(context, ModelDownloadService.class)
+                .putExtra(MODEL_KEY, model.key));
+    }
+
     static String statusFor(OfflineModel model) {
         return statusModel == model ? status : null;
+    }
+
+    static boolean isDownloading(OfflineModel model) {
+        return downloading && statusModel == model;
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }
@@ -46,6 +59,12 @@ public final class ModelDownloadService extends Service {
         downloading = true;
         cancelled = false;
         selectedModel = OfflineModel.selected(this);
+        if (intent != null) {
+            String key = intent.getStringExtra(MODEL_KEY);
+            for (OfflineModel model : OfflineModel.ALL) {
+                if (model.key.equals(key)) selectedModel = model;
+            }
+        }
         status = "Downloading " + selectedModel.label + "...";
         statusModel = selectedModel;
         NotificationManager manager = getSystemService(NotificationManager.class);
@@ -74,7 +93,11 @@ public final class ModelDownloadService extends Service {
         File target = model.file(this);
         File partial = new File(target.getPath() + ".part");
         try {
-            if (model.ready(target)) { status = "Ready: " + model.label; return; }
+            if (model.ready(target)) {
+                model.select(this);
+                status = "Ready: " + model.label;
+                return;
+            }
             if (partial.exists() && !partial.delete()) throw new Exception("Could not clear interrupted download");
             if (target.getParentFile().getUsableSpace() < model.bytes + 64 * 1024 * 1024) {
                 long requiredMB = (model.bytes + 64 * 1024 * 1024 + 999999) / 1000000;
@@ -118,6 +141,7 @@ public final class ModelDownloadService extends Service {
             }
             if (cancelled) throw new Exception("Download cancelled");
             if (!partial.renameTo(target)) throw new Exception("Could not save model");
+            model.select(this);
             status = "Ready: " + model.label;
         } catch (Exception error) {
             String message = error.getMessage();

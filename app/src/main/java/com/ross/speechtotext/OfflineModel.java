@@ -46,9 +46,15 @@ final class OfflineModel {
         return PARAKEET;
     }
 
+    void select(Context context) {
+        if (selected(context) == this) return;
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+                .putString(PREFERENCE, key).apply();
+        OfflineEngine.releaseAsync();
+    }
+
     File file(Context context) { return new File(context.getNoBackupFilesDir(), name); }
     boolean ready(Context context) { return ready(file(context)); }
     boolean ready(File file) { return file.isFile() && file.length() == bytes; }
     int megabytes() { return (int) Math.round(bytes / 1_000_000.0); }
-    String downloadLabel() { return label + " (" + megabytes() + " MB)"; }
 }

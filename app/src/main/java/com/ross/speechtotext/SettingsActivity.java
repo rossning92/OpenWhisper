@@ -5,11 +5,15 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
-import androidx.preference.ListPreference;
 import androidx.preference.SwitchPreferenceCompat;
 
 public class SettingsActivity extends AppCompatActivity {
@@ -39,27 +43,10 @@ public class SettingsActivity extends AppCompatActivity {
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             setPreferencesFromResource(R.xml.preferences, rootKey);
-            findPreference("offline_model").setOnPreferenceClickListener(pref -> {
-                requireContext().startForegroundService(new Intent(requireContext(), ModelDownloadService.class));
+            findPreference(OfflineModel.PREFERENCE).setOnPreferenceClickListener(pref -> {
+                showModelPicker();
                 return true;
             });
-            ListPreference modelPref = findPreference(OfflineModel.PREFERENCE);
-            if (modelPref != null) {
-                CharSequence[] entries = new CharSequence[OfflineModel.ALL.length];
-                CharSequence[] values = new CharSequence[OfflineModel.ALL.length];
-                for (int i = 0; i < OfflineModel.ALL.length; i++) {
-                    OfflineModel model = OfflineModel.ALL[i];
-                    entries[i] = model.downloadLabel() + " - " + model.languages;
-                    values[i] = model.key;
-                }
-                modelPref.setEntries(entries);
-                modelPref.setEntryValues(values);
-                modelPref.setOnPreferenceChangeListener((pref, newValue) -> {
-                    OfflineEngine.releaseAsync();
-                    requireActivity().getWindow().getDecorView().post(this::updateOfflineModel);
-                    return true;
-                });
-            }
             SwitchPreferenceCompat featurePref = findPreference(MainActivity.KEY_FEATURE_ENABLED);
             if (featurePref != null) {
                 featurePref.setOnPreferenceChangeListener((pref, newValue) -> {
@@ -105,23 +92,103 @@ public class SettingsActivity extends AppCompatActivity {
             super.onPause();
         }
 
+        private AlertDialog modelDialog;
+        private TextView[] modelStatuses;
+        private Button[] modelActions;
+        private OfflineModel pendingDownload;
+
+        private void showModelPicker() {
+            LinearLayout rows = new LinearLayout(requireContext());
+            rows.setOrientation(LinearLayout.VERTICAL);
+            int padding = (int) (24 * getResources().getDisplayMetrics().density);
+            rows.setPadding(padding, padding / 2, padding, padding / 2);
+            modelStatuses = new TextView[OfflineModel.ALL.length];
+            modelActions = new Button[OfflineModel.ALL.length];
+            for (int i = 0; i < OfflineModel.ALL.length; i++) {
+                OfflineModel model = OfflineModel.ALL[i];
+                TextView title = new TextView(requireContext());
+                title.setText(model.label + " - " + model.languages);
+                title.setTextSize(16);
+                rows.addView(title);
+                modelStatuses[i] = new TextView(requireContext());
+                rows.addView(modelStatuses[i]);
+                Button action = new Button(requireContext());
+                action.setAllCaps(false);
+                action.setOnClickListener(view -> {
+                    if (ModelDownloadService.isDownloading(model)) {
+                        requireContext().startService(new Intent(requireContext(), ModelDownloadService.class)
+                                .setAction(ModelDownloadService.CANCEL));
+                    } else if (model.ready(requireContext())) {
+                        model.select(requireContext());
+                        modelDialog.dismiss();
+                    } else {
+                        ModelDownloadService.startDownload(requireContext(), model);
+                        pendingDownload = model;
+                    }
+                    updateOfflineModel();
+                });
+                modelActions[i] = action;
+                rows.addView(action);
+            }
+            ScrollView scroll = new ScrollView(requireContext());
+            scroll.addView(rows);
+            modelDialog = new AlertDialog.Builder(requireContext()).setTitle("Offline model")
+                    .setView(scroll).setPositiveButton("Done", null).create();
+            modelDialog.setOnDismissListener(dialog -> {
+                modelDialog = null;
+                modelStatuses = null;
+                modelActions = null;
+            });
+            modelDialog.show();
+            updateOfflineModel();
+        }
+
+        @Override public void onDestroyView() {
+            if (modelDialog != null) modelDialog.dismiss();
+            super.onDestroyView();
+        }
+
         private void updateOfflineModel() {
-            Preference pref = findPreference("offline_model");
-            ListPreference modelPref = findPreference(OfflineModel.PREFERENCE);
+            Preference pref = findPreference(OfflineModel.PREFERENCE);
             if (!OfflineEngine.supported()) {
                 pref.setEnabled(false);
-                if (modelPref != null) modelPref.setEnabled(false);
                 pref.setSummary("Offline transcription is not supported by this CPU");
                 return;
             }
-            OfflineModel model = OfflineModel.selected(requireContext());
-            boolean ready = model.ready(requireContext());
-            if (modelPref != null) modelPref.setEnabled(!ModelDownloadService.downloading);
-            pref.setEnabled(!ready && !ModelDownloadService.downloading);
-            String status = ModelDownloadService.statusFor(model);
-            pref.setSummary(ready
-                    ? "Ready. " + model.languages + "; audio stays on this device."
-                    : (status != null ? status : "Download " + model.downloadLabel()));
+            OfflineModel selected = OfflineModel.selected(requireContext());
+            if (pendingDownload != null && ModelDownloadService.statusFor(pendingDownload) != null) {
+                pendingDownload = null;
+            }
+            pref.setSummary(selected.label + (selected.ready(requireContext())
+                    ? " - Ready" : " - Download required"));
+            for (OfflineModel model : OfflineModel.ALL) {
+                if (ModelDownloadService.isDownloading(model)) {
+                    pref.setSummary(selected.label + " - " + ModelDownloadService.statusFor(model));
+                    break;
+                }
+            }
+            if (modelDialog == null) return;
+            for (int i = 0; i < OfflineModel.ALL.length; i++) {
+                OfflineModel model = OfflineModel.ALL[i];
+                boolean ready = model.ready(requireContext());
+                boolean downloading = ModelDownloadService.isDownloading(model);
+                String status = ModelDownloadService.statusFor(model);
+                String action;
+                if (downloading) {
+                    action = "Cancel";
+                } else if (ready) {
+                    status = model == selected ? "Ready - Selected" : "Ready";
+                    action = "Select";
+                } else {
+                    action = (status == null ? "Download - " : "Retry - ") + model.megabytes() + " MB";
+                    if (pendingDownload == model) status = "Starting download...";
+                    else if (status == null) status = "Download required";
+                }
+                modelStatuses[i].setText(status);
+                modelActions[i].setText(action);
+                modelActions[i].setEnabled(pendingDownload == null
+                        && (downloading || !ModelDownloadService.downloading));
+            }
         }
 
         private void updateAccessibilityStatus() {
