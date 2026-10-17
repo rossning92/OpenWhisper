@@ -21,9 +21,11 @@ import android.content.pm.ServiceInfo;
 import android.provider.Settings;
 import androidx.preference.PreferenceManager;
 import android.content.res.Configuration;
+import android.content.res.ColorStateList;
 
 import android.graphics.Insets;
 import android.graphics.PixelFormat;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -43,6 +45,8 @@ import android.widget.Toast;
 import androidx.appcompat.view.ContextThemeWrapper;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.color.MaterialColors;
+import com.google.android.material.shape.RelativeCornerSize;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -181,10 +185,12 @@ public class FloatingService extends Service {
         updateWaveformDimensions();
 
         floatingView = createFab(R.drawable.ic_graphic_eq);
+        floatingView.setContentDescription("Start dictation");
         floatingView.setHapticFeedbackEnabled(true);
         floatingView.setOnClickListener(v -> toggleDictation());
 
         cancelView = createFab(R.drawable.ic_close);
+        cancelView.setContentDescription("Cancel dictation");
         cancelView.setVisibility(View.GONE);
         cancelView.setOnClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
@@ -206,6 +212,11 @@ public class FloatingService extends Service {
         container = new LinearLayout(themedContext);
         container.setOrientation(LinearLayout.HORIZONTAL);
         container.setGravity(Gravity.CENTER_VERTICAL);
+        GradientDrawable controlGap = new GradientDrawable();
+        controlGap.setColor(android.graphics.Color.TRANSPARENT);
+        controlGap.setSize(Math.round(4 * getResources().getDisplayMetrics().density), 1);
+        container.setDividerDrawable(controlGap);
+        container.setShowDividers(LinearLayout.SHOW_DIVIDER_MIDDLE);
 
         View.OnTouchListener dragTouchListener = new View.OnTouchListener() {
             private int initialX, initialY;
@@ -314,10 +325,25 @@ public class FloatingService extends Service {
     private FloatingActionButton createFab(int iconRes) {
         FloatingActionButton fab = new FloatingActionButton(themedContext);
         fab.setImageResource(iconRes);
+        fab.setShapeAppearanceModel(fab.getShapeAppearanceModel().toBuilder()
+                .setAllCornerSizes(new RelativeCornerSize(0.5f)).build());
+        fab.setEnsureMinTouchTargetSize(true);
         applyFabSize(fab);
         fab.setUseCompatPadding(true);
         fab.setCompatElevation(0f);
+        fab.setCompatHoveredFocusedTranslationZ(0f);
+        fab.setCompatPressedTranslationZ(0f);
+        applyFabColors(fab, false);
         return fab;
+    }
+
+    private void applyFabColors(FloatingActionButton fab, boolean active) {
+        int background = active ? com.google.android.material.R.attr.colorPrimary
+                : com.google.android.material.R.attr.colorSurfaceContainerHigh;
+        int foreground = active ? com.google.android.material.R.attr.colorOnPrimary
+                : com.google.android.material.R.attr.colorOnSurfaceVariant;
+        fab.setBackgroundTintList(ColorStateList.valueOf(MaterialColors.getColor(fab, background)));
+        fab.setImageTintList(ColorStateList.valueOf(MaterialColors.getColor(fab, foreground)));
     }
 
     private boolean readUseSmallControls() {
@@ -327,20 +353,14 @@ public class FloatingService extends Service {
         return MainActivity.FLOATING_BUTTON_SIZE_SMALL.equals(buttonSize);
     }
 
-    private int getFabSize() {
-        return useSmallControls
-                ? FloatingActionButton.SIZE_MINI
-                : FloatingActionButton.SIZE_NORMAL;
-    }
-
     private float getControlScale() {
-        return useSmallControls ? 1f : 1.4f;
+        return useSmallControls ? 1f : 1.2f;
     }
 
     private void applyFabSize(FloatingActionButton fab) {
-        fab.setSize(getFabSize());
-        fab.setMaxImageSize((int) (24 * getResources().getDisplayMetrics().density
-                * getControlScale()));
+        float density = getResources().getDisplayMetrics().density;
+        fab.setCustomSize(Math.round((useSmallControls ? 40 : 48) * density));
+        fab.setMaxImageSize(Math.round((useSmallControls ? 22 : 24) * density));
     }
 
     private void updateWaveformDimensions() {
@@ -406,7 +426,9 @@ public class FloatingService extends Service {
 
     private void enterDictationMode() {
         isDictating = true;
+        applyFabColors(floatingView, true);
         floatingView.setImageResource(R.drawable.ic_send);
+        floatingView.setContentDescription("Stop and transcribe");
         waveformView.clear();
         waveformView.setVisibility(View.VISIBLE);
         termuxScriptView.setVisibility(View.VISIBLE);
@@ -554,6 +576,7 @@ public class FloatingService extends Service {
     private void enterTranscribingMode() {
         isTranscribing = true;
         floatingView.setImageResource(android.R.drawable.ic_popup_sync);
+        floatingView.setContentDescription("Transcribing");
         spinAnimator = ObjectAnimator.ofFloat(floatingView, "alpha", 1f, 0.3f);
         spinAnimator.setDuration(600);
         spinAnimator.setRepeatCount(ValueAnimator.INFINITE);
@@ -573,6 +596,8 @@ public class FloatingService extends Service {
 
     private void resetFabToDefault() {
         floatingView.setImageResource(R.drawable.ic_graphic_eq);
+        floatingView.setContentDescription("Start dictation");
+        applyFabColors(floatingView, false);
     }
 
     private void exitDictationMode() {

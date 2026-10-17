@@ -28,7 +28,7 @@ public class WaveformView extends View {
         super(context);
         density = context.getResources().getDisplayMetrics().density;
         barPaint.setColor(MaterialColors.getColor(context, com.google.android.material.R.attr.colorPrimary, 0));
-        surfaceColor = MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurfaceContainer, 0);
+        surfaceColor = MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurfaceContainerHigh, 0);
         setScale(1f);
         setClipToOutline(true);
     }
@@ -41,9 +41,8 @@ public class WaveformView extends View {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(surfaceColor);
-        bg.setCornerRadius(18f * density * scale);
+        bg.setCornerRadius(20f * density * scale);
         setBackground(bg);
-        setElevation(4f * density * scale);
         invalidate();
     }
 
