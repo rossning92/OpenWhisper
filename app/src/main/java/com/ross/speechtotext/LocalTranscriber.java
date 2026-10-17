@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutionException;
 final class LocalTranscriber implements Transcriber {
     private static final int SAMPLE_RATE = 16000;
     private static final int MAX_BYTES = SAMPLE_RATE * 2 * 5 * 60;
+    private final OfflineModel modelInfo;
     private final File model;
     private final Listener listener;
     private final ByteArrayOutputStream audio = new ByteArrayOutputStream();
@@ -22,13 +23,14 @@ final class LocalTranscriber implements Transcriber {
     private volatile boolean closed;
 
     LocalTranscriber(Context context, Listener listener) {
-        this.model = OfflineModel.file(context);
+        this.modelInfo = OfflineModel.selected(context);
+        this.model = modelInfo.file(context);
         this.listener = listener;
     }
 
     @Override public void start() throws Exception {
-        if (!OfflineModel.ready(model)) throw new Exception("Open Speech To Text and download the Offline English model first");
-        if (!OfflineEngine.supported()) throw new Exception("Offline English is not supported by this CPU");
+        if (!modelInfo.ready(model)) throw new Exception("Open Speech To Text and download " + modelInfo.label + " first");
+        if (!OfflineEngine.supported()) throw new Exception("Offline transcription is not supported by this CPU");
         int size = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT);
         if (size <= 0) throw new Exception("16 kHz recording is unavailable");

@@ -9,6 +9,7 @@ import android.provider.Settings;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.ListPreference;
 import androidx.preference.SwitchPreferenceCompat;
 
 public class SettingsActivity extends AppCompatActivity {
@@ -42,6 +43,23 @@ public class SettingsActivity extends AppCompatActivity {
                 requireContext().startForegroundService(new Intent(requireContext(), ModelDownloadService.class));
                 return true;
             });
+            ListPreference modelPref = findPreference(OfflineModel.PREFERENCE);
+            if (modelPref != null) {
+                CharSequence[] entries = new CharSequence[OfflineModel.ALL.length];
+                CharSequence[] values = new CharSequence[OfflineModel.ALL.length];
+                for (int i = 0; i < OfflineModel.ALL.length; i++) {
+                    OfflineModel model = OfflineModel.ALL[i];
+                    entries[i] = model.downloadLabel() + " - " + model.languages;
+                    values[i] = model.key;
+                }
+                modelPref.setEntries(entries);
+                modelPref.setEntryValues(values);
+                modelPref.setOnPreferenceChangeListener((pref, newValue) -> {
+                    OfflineEngine.releaseAsync();
+                    requireActivity().getWindow().getDecorView().post(this::updateOfflineModel);
+                    return true;
+                });
+            }
             SwitchPreferenceCompat featurePref = findPreference(MainActivity.KEY_FEATURE_ENABLED);
             if (featurePref != null) {
                 featurePref.setOnPreferenceChangeListener((pref, newValue) -> {
@@ -89,14 +107,21 @@ public class SettingsActivity extends AppCompatActivity {
 
         private void updateOfflineModel() {
             Preference pref = findPreference("offline_model");
+            ListPreference modelPref = findPreference(OfflineModel.PREFERENCE);
             if (!OfflineEngine.supported()) {
                 pref.setEnabled(false);
-                pref.setSummary("Offline English is not supported by this CPU");
+                if (modelPref != null) modelPref.setEnabled(false);
+                pref.setSummary("Offline transcription is not supported by this CPU");
                 return;
             }
-            boolean ready = OfflineModel.ready(OfflineModel.file(requireContext()));
+            OfflineModel model = OfflineModel.selected(requireContext());
+            boolean ready = model.ready(requireContext());
+            if (modelPref != null) modelPref.setEnabled(!ModelDownloadService.downloading);
             pref.setEnabled(!ready && !ModelDownloadService.downloading);
-            pref.setSummary(ready ? "Ready. English only; audio stays on this device." : ModelDownloadService.status);
+            String status = ModelDownloadService.statusFor(model);
+            pref.setSummary(ready
+                    ? "Ready. " + model.languages + "; audio stays on this device."
+                    : (status != null ? status : "Download " + model.downloadLabel()));
         }
 
         private void updateAccessibilityStatus() {

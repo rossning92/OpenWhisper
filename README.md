@@ -1,9 +1,9 @@
 # Speech To Text
 
-Android floating dictation app. Transcribes English on device using Parakeet via transcribe.cpp; audio stays on the device. Recordings are limited to 5 minutes.
+Android floating dictation app. Transcribes on device using Parakeet or Qwen3-ASR via transcribe.cpp; audio stays on the device. Recordings are limited to 5 minutes.
 
 - Requirements: Android 8.0+ and an ARM64 CPU with FP16 SIMD and dot-product support.
-- Setup: open the app, grant microphone and overlay permissions, then download the Offline English model (731 MB). Internet is needed for the download; transcription works offline afterward.
+- Setup: open the app, grant microphone and overlay permissions, choose Parakeet (English, 731 MB) or Qwen3-ASR (multilingual, 850 MB), then download it. Internet is needed for the download; transcription works offline afterward.
 - Use: focus a text field, tap the floating button to record, then tap Send to transcribe. Enable Accessibility Service from the app's main screen to insert text; otherwise results are copied to the clipboard. Tap X to cancel; drag the control to move it.
 - Build from the `myscripts` root: `run_script repos/SpeechToText/build.sh`. Uses JDK 21, Android SDK 34, NDK 28.2.13676358 and CMake 3.31.6. The first build downloads dependencies. APK: `app/build/outputs/apk/debug/app-debug.apk`.
 - On Android/Termux, build with `CWD="/path/to/SpeechToText" run_script r/android/gradle.sh assembleDebug`. Deploy from the `myscripts` root with `run_script repos/SpeechToText/deploy.sh`; this builds, installs, grants permissions, enables accessibility and opens the app.

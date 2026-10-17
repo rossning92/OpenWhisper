@@ -12,6 +12,7 @@ final class OfflineEngine {
     static { System.loadLibrary("offline-transcriber"); }
     private static final ScheduledThreadPoolExecutor WORKER = new ScheduledThreadPoolExecutor(1);
     private static long model;
+    private static String modelPath;
     private static ScheduledFuture<?> expiry;
     static { WORKER.setRemoveOnCancelPolicy(true); }
 
@@ -22,7 +23,12 @@ final class OfflineEngine {
 
     private static void ensureLoaded(File file) {
         if (expiry != null) expiry.cancel(false);
-        if (model == 0) model = load(file.getAbsolutePath());
+        String path = file.getAbsolutePath();
+        if (model != 0 && !path.equals(modelPath)) release();
+        if (model == 0) {
+            model = load(path);
+            modelPath = path;
+        }
     }
 
     private static void expireLater() {
@@ -49,6 +55,7 @@ final class OfflineEngine {
         if (expiry != null) expiry.cancel(false);
         if (model != 0) unload(model);
         model = 0;
+        modelPath = null;
     }
 
     static void releaseAsync() { WORKER.execute(OfflineEngine::release); }

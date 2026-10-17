@@ -23,9 +23,15 @@ public final class ModelDownloadService extends Service {
     private static final int NOTIFICATION = 2;
     private static final String CANCEL = "cancel";
     static volatile boolean downloading;
-    static volatile String status = "Download English model (731 MB)";
+    private static volatile String status;
+    private static volatile OfflineModel statusModel;
+    private OfflineModel selectedModel;
     private volatile Call call;
     private volatile boolean cancelled;
+
+    static String statusFor(OfflineModel model) {
+        return statusModel == model ? status : null;
+    }
 
     @Override public IBinder onBind(Intent intent) { return null; }
 
@@ -39,7 +45,9 @@ public final class ModelDownloadService extends Service {
         if (downloading) return START_NOT_STICKY;
         downloading = true;
         cancelled = false;
-        status = "Downloading English model...";
+        selectedModel = OfflineModel.selected(this);
+        status = "Downloading " + selectedModel.label + "...";
+        statusModel = selectedModel;
         NotificationManager manager = getSystemService(NotificationManager.class);
         manager.createNotificationChannel(new NotificationChannel(CHANNEL, "Offline model download",
                 NotificationManager.IMPORTANCE_LOW));
@@ -55,24 +63,26 @@ public final class ModelDownloadService extends Service {
                 new Intent(this, ModelDownloadService.class).setAction(CANCEL),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_graphic_eq)
-                .setContentTitle("Downloading Offline English").setContentText(status)
+                .setContentTitle("Downloading " + selectedModel.label).setContentText(status)
                 .setContentIntent(open).setOnlyAlertOnce(true).setOngoing(true)
                 .setProgress(100, progress, false)
                 .addAction(new Notification.Action.Builder(null, "Cancel", cancel).build()).build();
     }
 
     private void download() {
-        File target = OfflineModel.file(this);
+        OfflineModel model = selectedModel;
+        File target = model.file(this);
         File partial = new File(target.getPath() + ".part");
         try {
-            if (OfflineModel.ready(target)) { status = "Ready for offline English"; return; }
+            if (model.ready(target)) { status = "Ready: " + model.label; return; }
             if (partial.exists() && !partial.delete()) throw new Exception("Could not clear interrupted download");
-            if (target.getParentFile().getUsableSpace() < OfflineModel.BYTES + 64 * 1024 * 1024) {
-                throw new Exception("Not enough storage; free at least 800 MB");
+            if (target.getParentFile().getUsableSpace() < model.bytes + 64 * 1024 * 1024) {
+                long requiredMB = (model.bytes + 64 * 1024 * 1024 + 999999) / 1000000;
+                throw new Exception("Not enough storage; free at least " + requiredMB + " MB");
             }
             OkHttpClient client = new OkHttpClient.Builder().connectTimeout(30, TimeUnit.SECONDS)
                     .readTimeout(60, TimeUnit.SECONDS).build();
-            call = client.newCall(new Request.Builder().url(OfflineModel.URL).build());
+            call = client.newCall(new Request.Builder().url(model.url).build());
             if (cancelled) call.cancel();
             MessageDigest hash = MessageDigest.getInstance("SHA-256");
             long count = 0;
@@ -88,13 +98,13 @@ public final class ModelDownloadService extends Service {
                     while ((size = input.read(buffer)) != -1) {
                         if (cancelled) throw new Exception("Download cancelled");
                         count += size;
-                        if (count > OfflineModel.BYTES) throw new Exception("Unexpected model size");
+                        if (count > model.bytes) throw new Exception("Unexpected model size");
                         hash.update(buffer, 0, size);
                         output.write(buffer, 0, size);
-                        int progress = (int) (count * 100 / OfflineModel.BYTES);
+                        int progress = (int) (count * 100 / model.bytes);
                         if (progress != lastProgress) {
                             lastProgress = progress;
-                            status = "Downloading English model: " + progress + "%";
+                            status = "Downloading " + model.label + ": " + progress + "%";
                             getSystemService(NotificationManager.class).notify(NOTIFICATION, notification(progress));
                         }
                     }
@@ -103,14 +113,16 @@ public final class ModelDownloadService extends Service {
             }
             StringBuilder digest = new StringBuilder();
             for (byte value : hash.digest()) digest.append(String.format(Locale.ROOT, "%02x", value & 255));
-            if (count != OfflineModel.BYTES || !OfflineModel.SHA256.equals(digest.toString())) {
+            if (count != model.bytes || !model.sha256.equals(digest.toString())) {
                 throw new Exception("Model verification failed; tap to retry");
             }
             if (cancelled) throw new Exception("Download cancelled");
             if (!partial.renameTo(target)) throw new Exception("Could not save model");
-            status = "Ready for offline English";
+            status = "Ready: " + model.label;
         } catch (Exception error) {
-            status = cancelled ? "Download cancelled; tap to retry" : error.getMessage();
+            String message = error.getMessage();
+            status = cancelled ? "Download cancelled; tap to retry"
+                    : (message != null ? message : "Download failed; tap to retry");
         } finally {
             partial.delete();
             call = null;

@@ -6,10 +6,17 @@
         android:summary="Show the floating dictation button and run at startup"
         android:defaultValue="true" />
 
+    <ListPreference
+        android:key="offline_model_choice"
+        android:title="Offline model"
+        android:dialogTitle="Offline model"
+        android:defaultValue="parakeet"
+        android:summary="%s" />
+
     <Preference
         android:key="offline_model"
-        android:title="Offline English model"
-        android:summary="Download English model (731 MB)" />
+        android:title="Download offline model"
+        android:summary="Download selected model" />
 
     <ListPreference
         android:key="floating_button_size"
