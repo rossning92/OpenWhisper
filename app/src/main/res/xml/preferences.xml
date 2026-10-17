@@ -6,29 +6,23 @@
         android:summary="Show the floating dictation button and run at startup"
         android:defaultValue="true" />
 
-    <PreferenceCategory android:title="Local Speech Recognition">
-        <Preference
-            android:key="offline_model"
-            android:title="Offline English model"
-            android:summary="Download English model (731 MB)" />
-    </PreferenceCategory>
+    <Preference
+        android:key="offline_model"
+        android:title="Offline English model"
+        android:summary="Download English model (731 MB)" />
 
-    <PreferenceCategory android:title="Floating Control">
-        <ListPreference
-            android:key="floating_button_size"
-            android:title="Button size"
-            android:dialogTitle="Button size"
-            android:entries="@array/floating_button_size_entries"
-            android:entryValues="@array/floating_button_size_values"
-            android:defaultValue="normal"
-            android:summary="%s" />
-    </PreferenceCategory>
+    <ListPreference
+        android:key="floating_button_size"
+        android:title="Floating button size"
+        android:dialogTitle="Floating button size"
+        android:entries="@array/floating_button_size_entries"
+        android:entryValues="@array/floating_button_size_values"
+        android:defaultValue="normal"
+        android:summary="%s" />
 
-    <PreferenceCategory android:title="Text Input">
-        <SwitchPreferenceCompat
-            android:key="accessibility_status"
-            android:title="Accessibility Service"
-            android:summary="Types dictated text into focused fields. When enabled, the floating control uses a trusted accessibility overlay so protected screens, such as browser permission prompts, remain usable. When disabled, the control uses Draw over other apps instead."
-            android:persistent="false" />
-    </PreferenceCategory>
+    <SwitchPreferenceCompat
+        android:key="accessibility_status"
+        android:title="Accessibility Service"
+        android:summary="Types dictated text into focused fields. When enabled, the floating control uses a trusted accessibility overlay so protected screens, such as browser permission prompts, remain usable. When disabled, the control uses Draw over other apps instead."
+        android:persistent="false" />
 </PreferenceScreen>

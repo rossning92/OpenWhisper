@@ -22,7 +22,7 @@ public class SettingsActivity extends AppCompatActivity {
                     .commit();
         }
         if (getSupportActionBar() != null) {
-            getSupportActionBar().setTitle("Settings");
+            getSupportActionBar().setTitle(getApplicationInfo().loadLabel(getPackageManager()));
         }
         FloatingService.startIfReady(this);
     }

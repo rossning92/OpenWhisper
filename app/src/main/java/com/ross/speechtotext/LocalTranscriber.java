@@ -27,7 +27,7 @@ final class LocalTranscriber implements Transcriber {
     }
 
     @Override public void start() throws Exception {
-        if (!OfflineModel.ready(model)) throw new Exception("Download Offline English in Settings first");
+        if (!OfflineModel.ready(model)) throw new Exception("Open Speech To Text and download the Offline English model first");
         if (!OfflineEngine.supported()) throw new Exception("Offline English is not supported by this CPU");
         int size = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT);
