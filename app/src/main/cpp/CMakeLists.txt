@@ -1,0 +1,23 @@
+cmake_minimum_required(VERSION 3.22)
+project(offline_transcriber LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# Inference must stay optimized even in the debuggable Android app.
+add_compile_options(-O3)
+set(TRANSCRIBE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(TRANSCRIBE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(TRANSCRIBE_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(TRANSCRIBE_USE_SYSTEM_BLAS OFF CACHE BOOL "" FORCE)
+set(TRANSCRIBE_USE_OPENMP OFF CACHE BOOL "" FORCE)
+set(TRANSCRIBE_METAL OFF CACHE BOOL "" FORCE)
+set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
+set(GGML_CPU_ARM_ARCH armv8.2-a+dotprod+fp16 CACHE STRING "")
+include(FetchContent)
+FetchContent_Declare(transcribe
+    GIT_REPOSITORY https://github.com/handy-computer/transcribe.cpp.git
+    GIT_TAG b61b7f936e4e728f8999a8c3e98c7112e700410e)
+FetchContent_MakeAvailable(transcribe)
+target_include_directories(transcribe PUBLIC ${transcribe_SOURCE_DIR}/include)
+add_library(offline-transcriber SHARED offline-transcriber.cpp)
+target_link_libraries(offline-transcriber PRIVATE transcribe)
+target_link_options(offline-transcriber PRIVATE "-Wl,-z,max-page-size=16384")

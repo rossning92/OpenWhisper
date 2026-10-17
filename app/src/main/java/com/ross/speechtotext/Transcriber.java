@@ -1,14 +1,12 @@
 package com.ross.speechtotext;
 
 /**
- * One speech-to-text session, independent of how audio reaches the provider.
+ * One local recording and transcription session.
  */
 interface Transcriber extends AutoCloseable {
     interface Listener {
         void onAmplitude(float amplitude);
         void onFailure(String message);
-        void onSendMessageDetected();
-        void onStopDetected();
     }
 
     void start() throws Exception;

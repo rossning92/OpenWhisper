@@ -2,32 +2,6 @@
 <resources>
     <string name="accessibility_description">Allows Speech To Text to type transcribed text into focused fields and show its floating dictation control as an accessibility overlay. This keeps protected screens, such as browser permission prompts, usable while the control is visible.</string>
     <string name="ime_label">Speech To Text (silent)</string>
-    <string name="default_transcription_prompt">Transcribe accurately in the original language. The speech may contain English, Mandarin, or both. Use Simplified Chinese characters and natural punctuation. Preferred spellings: Claude, Codex, Kubernetes, FFmpeg, Termux.</string>
-
-    <string-array name="transcription_mode_entries">
-        <item>Realtime API — lower latency</item>
-        <item>Transcriptions API — upload after recording</item>
-    </string-array>
-    <string-array name="transcription_mode_values">
-        <item>realtime</item>
-        <item>upload</item>
-    </string-array>
-
-    <string-array name="audio_bitrate_entries">
-        <item>Extreme — 12 kbps (~15–20 KB / 10 sec)</item>
-        <item>Low — 16 kbps (~20–25 KB / 10 sec)</item>
-        <item>Balanced — 24 kbps (~30–35 KB / 10 sec)</item>
-        <item>High — 32 kbps (~40–45 KB / 10 sec)</item>
-        <item>Maximum — 64 kbps (~80–100 KB / 10 sec)</item>
-    </string-array>
-    <string-array name="audio_bitrate_values">
-        <item>12000</item>
-        <item>16000</item>
-        <item>24000</item>
-        <item>32000</item>
-        <item>64000</item>
-    </string-array>
-
     <string-array name="floating_button_size_entries">
         <item>Normal</item>
         <item>Small</item>

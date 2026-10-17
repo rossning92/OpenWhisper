@@ -115,15 +115,6 @@ public class TypeAccessibilityService extends AccessibilityService {
         return true;
     }
 
-    public boolean sendEnterKey() {
-        InputMethod.AccessibilityInputConnection ic = getCurrentInputConnection();
-        if (ic == null) return false;
-        long time = android.os.SystemClock.uptimeMillis();
-        ic.sendKeyEvent(new KeyEvent(time, time, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0));
-        ic.sendKeyEvent(new KeyEvent(time, time, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0));
-        return true;
-    }
-
     private InputMethod.AccessibilityInputConnection getCurrentInputConnection() {
         InputMethod inputMethod = getInputMethod();
         return inputMethod == null ? null : inputMethod.getCurrentInputConnection();

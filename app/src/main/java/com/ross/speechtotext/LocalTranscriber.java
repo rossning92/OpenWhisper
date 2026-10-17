@@ -1,0 +1,125 @@
+package com.ross.speechtotext;
+
+import android.content.Context;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.util.concurrent.ExecutionException;
+
+final class LocalTranscriber implements Transcriber {
+    private static final int SAMPLE_RATE = 16000;
+    private static final int MAX_BYTES = SAMPLE_RATE * 2 * 5 * 60;
+    private final File model;
+    private final Listener listener;
+    private final ByteArrayOutputStream audio = new ByteArrayOutputStream();
+    private AudioRecord recorder;
+    private Thread reader;
+    private volatile boolean recording;
+    private volatile String failure;
+    private volatile boolean closed;
+
+    LocalTranscriber(Context context, Listener listener) {
+        this.model = OfflineModel.file(context);
+        this.listener = listener;
+    }
+
+    @Override public void start() throws Exception {
+        if (!OfflineModel.ready(model)) throw new Exception("Download Offline English in Settings first");
+        if (!OfflineEngine.supported()) throw new Exception("Offline English is not supported by this CPU");
+        int size = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT);
+        if (size <= 0) throw new Exception("16 kHz recording is unavailable");
+        recorder = new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, SAMPLE_RATE,
+                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, Math.max(size, 4096));
+        if (recorder.getState() != AudioRecord.STATE_INITIALIZED) {
+            recorder.release();
+            recorder = null;
+            throw new Exception("Could not open microphone");
+        }
+        recorder.startRecording();
+        if (recorder.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) {
+            throw new Exception("Microphone did not start");
+        }
+        recording = true;
+        AudioRecord current = recorder;
+        reader = new Thread(() -> capture(current), "OfflineAudio");
+        reader.start();
+        OfflineEngine.warmUp(model);
+    }
+
+    private void capture(AudioRecord current) {
+        byte[] buffer = new byte[1024];
+        try {
+            while (recording) {
+                int count = current.read(buffer, 0, buffer.length);
+                if (count < 0) {
+                    if (recording) throw new Exception("Microphone read failed: " + count);
+                    break;
+                }
+                if (count == 0) continue;
+                synchronized (audio) {
+                    if (audio.size() + count > MAX_BYTES) {
+                        throw new Exception("Offline dictation is limited to 5 minutes per recording");
+                    }
+                    audio.write(buffer, 0, count);
+                }
+                double squares = 0;
+                for (int i = 0; i + 1 < count; i += 2) {
+                    short sample = (short) ((buffer[i] & 255) | (buffer[i + 1] << 8));
+                    double value = sample / 32768.0;
+                    squares += value * value;
+                }
+                listener.onAmplitude(AudioLevel.fromNormalizedAmplitude(Math.sqrt(squares / (count / 2))));
+            }
+        } catch (Exception error) {
+            failure = error.getMessage();
+            listener.onFailure(failure);
+        }
+    }
+
+    @Override public void stop() {
+        recording = false;
+        if (recorder != null) {
+            try { recorder.stop(); } catch (IllegalStateException ignored) { }
+        }
+        if (reader != null && reader != Thread.currentThread()) {
+            try { reader.join(); }
+            catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+        }
+        reader = null;
+        if (recorder != null) recorder.release();
+        recorder = null;
+    }
+
+    @Override public String finish() throws Exception {
+        if (closed) throw new Exception("Recording cancelled");
+        if (failure != null) throw new Exception(failure);
+        byte[] bytes;
+        synchronized (audio) { bytes = audio.toByteArray(); }
+        if (bytes.length < 2) throw new Exception("No audio recorded");
+        float[] pcm = new float[bytes.length / 2];
+        for (int i = 0; i < pcm.length; ++i) {
+            pcm[i] = (short) ((bytes[i * 2] & 255) | (bytes[i * 2 + 1] << 8)) / 32768.0f;
+        }
+        try {
+            String text = OfflineEngine.transcribe(model, pcm).get();
+            if (closed) throw new Exception("Recording cancelled");
+            return text;
+        } catch (ExecutionException error) {
+            throw new Exception(error.getCause().getMessage(), error.getCause());
+        }
+    }
+
+    @Override public String getFinishingMessage() { return "Transcribing on device"; }
+    @Override public boolean canRetry() {
+        synchronized (audio) { return !closed && failure == null && audio.size() > 0; }
+    }
+    @Override public void close() {
+        closed = true;
+        stop();
+        synchronized (audio) { audio.reset(); }
+    }
+}

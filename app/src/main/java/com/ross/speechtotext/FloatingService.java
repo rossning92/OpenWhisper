@@ -41,7 +41,6 @@ import androidx.appcompat.view.ContextThemeWrapper;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import java.io.File;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -52,11 +51,9 @@ public class FloatingService extends Service {
     }
 
     static void startIfReady(Context context) {
-        String key = PreferenceManager.getDefaultSharedPreferences(context)
-                .getString(MainActivity.KEY_OPENAI_API_KEY, "");
         boolean canShowOverlay = Settings.canDrawOverlays(context)
                 || TypeAccessibilityService.getInstance() != null;
-        if (isFeatureEnabled(context) && canShowOverlay && !key.isEmpty()) {
+        if (isFeatureEnabled(context) && canShowOverlay) {
             context.startForegroundService(new Intent(context, FloatingService.class));
         }
     }
@@ -89,7 +86,6 @@ public class FloatingService extends Service {
     private AlertDialog transcriptionErrorDialog;
     private Transcriber failedTranscriber;
     private boolean failedTranscriptionRunsTermuxScript;
-    private boolean sendMessageAfterTranscription;
 
     private volatile Transcriber transcriber;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -393,7 +389,6 @@ public class FloatingService extends Service {
     }
 
     private void enterDictationMode() {
-        sendMessageAfterTranscription = false;
         isDictating = true;
         floatingView.setImageResource(R.drawable.ic_send);
         waveformView.clear();
@@ -442,9 +437,8 @@ public class FloatingService extends Service {
                     if (runTermuxScript) {
                         launchTermuxScript(text);
                     } else {
-                        deliverTranscription(text, sendMessageAfterTranscription);
+                        deliverTranscription(text);
                     }
-                    sendMessageAfterTranscription = false;
                     closeTranscriber(current);
                 });
             } catch (Exception e) {
@@ -592,13 +586,6 @@ public class FloatingService extends Service {
     }
 
     private Transcriber createTranscriber() {
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-        String apiKey = preferences.getString(MainActivity.KEY_OPENAI_API_KEY, "");
-        String mode = preferences.getString(
-                MainActivity.KEY_TRANSCRIPTION_MODE, MainActivity.TRANSCRIPTION_MODE_REALTIME);
-        String transcriptionPrompt = preferences.getString(
-                MainActivity.KEY_TRANSCRIPTION_PROMPT,
-                getString(R.string.default_transcription_prompt));
         Transcriber[] session = new Transcriber[1];
         Transcriber.Listener listener = new Transcriber.Listener() {
             @Override
@@ -616,47 +603,9 @@ public class FloatingService extends Service {
                     if (transcriber == session[0]) handleTranscriberFailure(message);
                 });
             }
-
-            @Override
-            public void onSendMessageDetected() {
-                mainHandler.post(() -> {
-                    if (isDictating && !isTranscribing && transcriber == session[0]) {
-                        sendMessageAfterTranscription = true;
-                        finishDictation();
-                    }
-                });
-            }
-
-            @Override
-            public void onStopDetected() {
-                mainHandler.post(() -> {
-                    if (isDictating && !isTranscribing && transcriber == session[0]) {
-                        cancelDictation();
-                    }
-                });
-            }
         };
-        if (MainActivity.TRANSCRIPTION_MODE_REALTIME.equals(mode)) {
-            session[0] = new RealtimeTranscriber(this, apiKey, transcriptionPrompt, listener);
-        } else {
-            session[0] = new UploadTranscriber(
-                    apiKey,
-                    getAudioBitrate(),
-                    new File(getCacheDir(), "recording.m4a"),
-                    transcriptionPrompt,
-                    listener);
-        }
+        session[0] = new LocalTranscriber(this, listener);
         return session[0];
-    }
-
-    private int getAudioBitrate() {
-        String value = PreferenceManager.getDefaultSharedPreferences(this)
-                .getString(MainActivity.KEY_AUDIO_BITRATE, MainActivity.DEFAULT_AUDIO_BITRATE);
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException ignored) {
-            return Integer.parseInt(MainActivity.DEFAULT_AUDIO_BITRATE);
-        }
     }
 
     private void restoreNonMicrophoneForegroundType() {
@@ -666,22 +615,12 @@ public class FloatingService extends Service {
         }
     }
 
-    private void deliverTranscription(String text, boolean sendMessage) {
-        String deliveredText = sendMessage ? SendMessageCommand.removeFromEnd(text) : text;
-        boolean typed = typeViaAccessibility(deliveredText);
+    private void deliverTranscription(String text) {
+        boolean typed = typeViaAccessibility(text);
         if (!typed) {
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-            clipboard.setPrimaryClip(ClipData.newPlainText("transcription", deliveredText));
+            clipboard.setPrimaryClip(ClipData.newPlainText("transcription", text));
             Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (sendMessage) {
-            mainHandler.postDelayed(() -> {
-                TypeAccessibilityService service = TypeAccessibilityService.getInstance();
-                if (service == null || !service.sendEnterKey()) {
-                    Toast.makeText(this, "Message transcribed; press Send", Toast.LENGTH_SHORT).show();
-                }
-            }, 150);
         }
     }
 
@@ -772,6 +711,7 @@ public class FloatingService extends Service {
         if (current != null) current.stop();
         closeTranscriber(current);
         executor.shutdownNow();
+        OfflineEngine.releaseAsync();
         if (container != null) detachOverlay();
     }
 }

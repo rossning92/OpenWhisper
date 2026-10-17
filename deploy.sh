@@ -2,7 +2,7 @@
 set -e
 cd "$(dirname "$0")"
 
-source ../android_helper.sh
+source ../../scripts/r/android/android_helper.sh
 
 APK="app/build/outputs/apk/debug/app-debug.apk"
 PACKAGE="com.ross.speechtotext"
@@ -10,19 +10,6 @@ PACKAGE="com.ross.speechtotext"
 run_script ./build.sh
 
 android_install_apk "$APK"
-
-if [[ -n "${OPENAI_API_KEY:-}" ]]; then
-    RESULT=$(android_shell "am broadcast -n $PACKAGE/.ConfigReceiver \
-        -a $PACKAGE.action.SET_OPENAI_API_KEY \
-        --es openai_api_key '$OPENAI_API_KEY'")
-    if [[ "$RESULT" != *"result=0"* ]]; then
-        echo "Failed to configure OpenAI API key: $RESULT" >&2
-        exit 1
-    fi
-    echo "OpenAI API key set (${#OPENAI_API_KEY} chars)"
-else
-    echo "OPENAI_API_KEY not set - skipping API key injection"
-fi
 
 android_shell "appops set $PACKAGE SYSTEM_ALERT_WINDOW allow"
 android_shell "pm grant $PACKAGE android.permission.RECORD_AUDIO"

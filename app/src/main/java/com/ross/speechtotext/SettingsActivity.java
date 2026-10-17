@@ -2,10 +2,11 @@ package com.ross.speechtotext;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
@@ -27,9 +28,20 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     public static class SettingsFragment extends PreferenceFragmentCompat {
+        private final Handler handler = new Handler(Looper.getMainLooper());
+        private final Runnable refresh = new Runnable() {
+            @Override public void run() {
+                updateOfflineModel();
+                handler.postDelayed(this, 1000);
+            }
+        };
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             setPreferencesFromResource(R.xml.preferences, rootKey);
+            findPreference("offline_model").setOnPreferenceClickListener(pref -> {
+                requireContext().startForegroundService(new Intent(requireContext(), ModelDownloadService.class));
+                return true;
+            });
             SwitchPreferenceCompat featurePref = findPreference(MainActivity.KEY_FEATURE_ENABLED);
             if (featurePref != null) {
                 featurePref.setOnPreferenceChangeListener((pref, newValue) -> {
@@ -54,15 +66,6 @@ public class SettingsActivity extends AppCompatActivity {
                     return true;
                 });
             }
-            EditTextPreference apiKeyPref = findPreference(MainActivity.KEY_OPENAI_API_KEY);
-            if (apiKeyPref != null) {
-                apiKeyPref.setSummaryProvider(pref -> {
-                    String val = ((EditTextPreference) pref).getText();
-                    if (val == null || val.isEmpty()) return "Not set";
-                    if (val.length() <= 8) return "****";
-                    return val.substring(0, 4) + "..." + val.substring(val.length() - 4);
-                });
-            }
             SwitchPreferenceCompat accessibilityPref = findPreference("accessibility_status");
             if (accessibilityPref != null) {
                 accessibilityPref.setOnPreferenceChangeListener((pref, newValue) -> {
@@ -76,6 +79,24 @@ public class SettingsActivity extends AppCompatActivity {
         public void onResume() {
             super.onResume();
             updateAccessibilityStatus();
+            handler.post(refresh);
+        }
+
+        @Override public void onPause() {
+            handler.removeCallbacks(refresh);
+            super.onPause();
+        }
+
+        private void updateOfflineModel() {
+            Preference pref = findPreference("offline_model");
+            if (!OfflineEngine.supported()) {
+                pref.setEnabled(false);
+                pref.setSummary("Offline English is not supported by this CPU");
+                return;
+            }
+            boolean ready = OfflineModel.ready(OfflineModel.file(requireContext()));
+            pref.setEnabled(!ready && !ModelDownloadService.downloading);
+            pref.setSummary(ready ? "Ready. English only; audio stays on this device." : ModelDownloadService.status);
         }
 
         private void updateAccessibilityStatus() {

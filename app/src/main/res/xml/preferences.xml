@@ -6,39 +6,11 @@
         android:summary="Show the floating dictation button and run at startup"
         android:defaultValue="true" />
 
-    <PreferenceCategory android:title="Provider">
-        <EditTextPreference
-            android:key="openai_api_key"
-            android:title="OpenAI API Key"
-            android:dialogTitle="OpenAI API Key"
-            android:singleLine="true" />
-        <ListPreference
-            android:key="transcription_mode"
-            android:title="Transcription mode"
-            android:dialogTitle="Transcription mode"
-            android:entries="@array/transcription_mode_entries"
-            android:entryValues="@array/transcription_mode_values"
-            android:defaultValue="realtime"
-            android:summary="%s" />
-        <EditTextPreference
-            android:key="transcription_prompt"
-            android:title="Transcription prompt"
-            android:dialogTitle="Transcription prompt"
-            android:dialogMessage="This text is sent directly to the transcription model to provide language, vocabulary, spelling, punctuation, or formatting guidance."
-            android:defaultValue="@string/default_transcription_prompt"
-            android:summary="Customize transcription instructions and context"
-            android:singleLine="false" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Recording">
-        <ListPreference
-            android:key="audio_bitrate"
-            android:title="Audio quality"
-            android:dialogTitle="Audio quality"
-            android:entries="@array/audio_bitrate_entries"
-            android:entryValues="@array/audio_bitrate_values"
-            android:defaultValue="24000"
-            android:summary="%s" />
+    <PreferenceCategory android:title="Local Speech Recognition">
+        <Preference
+            android:key="offline_model"
+            android:title="Offline English model"
+            android:summary="Download English model (731 MB)" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Floating Control">
