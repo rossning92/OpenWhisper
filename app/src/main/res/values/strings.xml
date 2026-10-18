@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string-array name="no_input_action_entries">
+        <item>Copy to clipboard</item>
+        <item>Run Termux command (terminal button)</item>
+    </string-array>
+    <string-array name="no_input_action_values">
+        <item>clipboard</item>
+        <item>termux</item>
+    </string-array>
     <string name="accessibility_description">Allows Speech To Text to type transcribed text into focused fields and show its floating dictation control as an accessibility overlay. This keeps protected screens, such as browser permission prompts, usable while the control is visible.</string>
     <string name="ime_label">Speech To Text (silent)</string>
     <string-array name="floating_button_size_entries">

@@ -673,6 +673,12 @@ public class FloatingService extends Service {
     private void deliverTranscription(String text) {
         boolean typed = typeViaAccessibility(text);
         if (!typed) {
+            String action = PreferenceManager.getDefaultSharedPreferences(this)
+                    .getString("no_input_action", "clipboard");
+            if ("termux".equals(action)) {
+                launchTermuxScript(text);
+                return;
+            }
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
             clipboard.setPrimaryClip(ClipData.newPlainText("transcription", text));
             Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show();

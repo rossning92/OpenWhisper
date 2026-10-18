@@ -16,6 +16,15 @@
         android:summary="Send automatically after 1.5 seconds of silence following speech. Applies to the next recording."
         android:defaultValue="false" />
 
+    <ListPreference
+        android:key="no_input_action"
+        android:title="When no input field is focused"
+        android:dialogTitle="When no input field is focused"
+        android:entries="@array/no_input_action_entries"
+        android:entryValues="@array/no_input_action_values"
+        android:defaultValue="clipboard"
+        android:summary="%s" />
+
     <EditTextPreference
         android:key="custom_dictionary"
         android:title="Custom dictionary"
