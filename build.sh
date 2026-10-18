@@ -2,7 +2,7 @@
 set -e
 cd "$(dirname "$0")"
 
-APK="app/build/outputs/apk/debug/app-debug.apk"
-
-./gradlew "${@:-assembleDebug}"
-echo "APK built: $APK"
+if [ "$#" -eq 0 ]; then
+    set -- assembleDebug
+fi
+./gradlew "$@"
