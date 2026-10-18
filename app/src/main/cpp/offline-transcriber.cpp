@@ -1,7 +1,9 @@
 #include <jni.h>
 #include <asm/hwcap.h>
 #include <sys/auxv.h>
+#include <algorithm>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -45,7 +47,8 @@ Java_com_ross_speechtotext_OfflineEngine_load(JNIEnv *env, jclass, jstring path)
 }
 
 extern "C" JNIEXPORT jbyteArray JNICALL
-Java_com_ross_speechtotext_OfflineEngine_run(JNIEnv *env, jclass, jlong handle, jfloatArray audio) {
+Java_com_ross_speechtotext_OfflineEngine_run(JNIEnv *env, jclass, jlong handle, jfloatArray audio,
+                                           jbyteArray vocabulary) {
     try {
         if (!handle || !audio) throw std::runtime_error("No model or audio");
         const int count = env->GetArrayLength(audio);
@@ -59,7 +62,28 @@ Java_com_ross_speechtotext_OfflineEngine_run(JNIEnv *env, jclass, jlong handle, 
         transcribe_session *raw = nullptr;
         check(transcribe_session_init(reinterpret_cast<transcribe_model *>(handle), &params, &raw));
         std::unique_ptr<transcribe_session, decltype(&transcribe_session_free)> session(raw, transcribe_session_free);
-        check(transcribe_run(session.get(), pcm.data(), count, nullptr));
+        std::vector<std::string> terms;
+        if (vocabulary) {
+            const jsize size = env->GetArrayLength(vocabulary);
+            std::string text(size, '\0');
+            if (size) env->GetByteArrayRegion(vocabulary, 0, size, reinterpret_cast<jbyte *>(text.data()));
+            if (env->ExceptionCheck()) return nullptr;
+            std::istringstream lines(text);
+            std::string line;
+            while (std::getline(lines, line)) {
+                const auto first = line.find_first_not_of(" \t\r");
+                if (first == std::string::npos) continue;
+                line = line.substr(first, line.find_last_not_of(" \t\r") - first + 1);
+                if (std::find(terms.begin(), terms.end(), line) == terms.end()) terms.push_back(line);
+            }
+        }
+        std::vector<const char *> words;
+        for (const auto &term : terms) words.push_back(term.c_str());
+        transcribe_run_params run_params;
+        transcribe_run_params_init(&run_params);
+        run_params.vocabulary = words.empty() ? nullptr : words.data();
+        run_params.n_vocabulary = static_cast<int32_t>(words.size());
+        check(transcribe_run(session.get(), pcm.data(), count, &run_params));
         // Java decodes UTF-8; NewStringUTF expects modified UTF-8.
         const std::string text(transcribe_full_text(session.get()));
         auto result = env->NewByteArray(static_cast<jsize>(text.size()));

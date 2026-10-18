@@ -10,6 +10,14 @@
         android:key="offline_model_choice"
         android:title="Offline model" />
 
+    <EditTextPreference
+        android:key="custom_dictionary"
+        android:title="Custom dictionary"
+        android:dialogTitle="Custom dictionary"
+        android:dialogMessage="One word or phrase per line, most important first. Qwen3-ASR uses these as spelling hints. Clear the list to turn it off."
+        android:summary="Names and technical terms for Qwen3-ASR only; not used by Parakeet"
+        android:defaultValue="" />
+
     <ListPreference
         android:key="floating_button_size"
         android:title="Floating button size"

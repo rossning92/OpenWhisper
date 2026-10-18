@@ -4,6 +4,7 @@ import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import androidx.preference.PreferenceManager;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -15,6 +16,7 @@ final class LocalTranscriber implements Transcriber {
     private final OfflineModel modelInfo;
     private final File model;
     private final Listener listener;
+    private final String vocabulary;
     private final ByteArrayOutputStream audio = new ByteArrayOutputStream();
     private AudioRecord recorder;
     private Thread reader;
@@ -26,6 +28,9 @@ final class LocalTranscriber implements Transcriber {
         this.modelInfo = OfflineModel.selected(context);
         this.model = modelInfo.file(context);
         this.listener = listener;
+        this.vocabulary = modelInfo == OfflineModel.QWEN
+                ? PreferenceManager.getDefaultSharedPreferences(context)
+                        .getString("custom_dictionary", "") : "";
     }
 
     @Override public void start() throws Exception {
@@ -107,7 +112,7 @@ final class LocalTranscriber implements Transcriber {
             pcm[i] = (short) ((bytes[i * 2] & 255) | (bytes[i * 2 + 1] << 8)) / 32768.0f;
         }
         try {
-            String text = OfflineEngine.transcribe(model, pcm).get();
+            String text = OfflineEngine.transcribe(model, pcm, vocabulary).get();
             if (closed) throw new Exception("Recording cancelled");
             return text;
         } catch (ExecutionException error) {

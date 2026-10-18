@@ -18,7 +18,7 @@ final class OfflineEngine {
 
     static native boolean supported();
     private static native long load(String path);
-    private static native byte[] run(long model, float[] audio);
+    private static native byte[] run(long model, float[] audio, byte[] vocabulary);
     private static native void unload(long model);
 
     private static void ensureLoaded(File file) {
@@ -42,11 +42,12 @@ final class OfflineEngine {
         });
     }
 
-    static Future<String> transcribe(File file, float[] audio) {
+    static Future<String> transcribe(File file, float[] audio, String vocabulary) {
         return WORKER.submit(() -> {
             try {
                 ensureLoaded(file);
-                return new String(run(model, audio), StandardCharsets.UTF_8).trim();
+                return new String(run(model, audio, vocabulary.getBytes(StandardCharsets.UTF_8)),
+                        StandardCharsets.UTF_8).trim();
             } finally { expireLater(); }
         });
     }
