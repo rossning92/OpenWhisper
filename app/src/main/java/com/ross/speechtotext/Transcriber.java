@@ -6,6 +6,7 @@ package com.ross.speechtotext;
 interface Transcriber extends AutoCloseable {
     interface Listener {
         void onAmplitude(float amplitude);
+        void onSpeechEnded();
         void onFailure(String message);
     }
 

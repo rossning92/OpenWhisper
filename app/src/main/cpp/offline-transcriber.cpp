@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include "transcribe.h"
+#include "transcribe/vad.h"
 
 static void check(transcribe_status status) {
     if (status != TRANSCRIBE_OK) throw std::runtime_error(transcribe_status_string(status));
@@ -97,4 +98,55 @@ Java_com_ross_speechtotext_OfflineEngine_run(JNIEnv *env, jclass, jlong handle, 
 extern "C" JNIEXPORT void JNICALL
 Java_com_ross_speechtotext_OfflineEngine_unload(JNIEnv *, jclass, jlong handle) {
     transcribe_model_free(reinterpret_cast<transcribe_model *>(handle));
+}
+
+
+struct SileroState {
+    transcribe_model *model = nullptr;
+    transcribe_vad_session *session = nullptr;
+    ~SileroState() {
+        transcribe_vad_session_free(session);
+        transcribe_model_free(model);
+    }
+};
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_ross_speechtotext_SileroVad_create(JNIEnv *env, jclass, jstring path) {
+    try {
+        auto state = std::make_unique<SileroState>();
+        state->model = reinterpret_cast<transcribe_model *>(
+                Java_com_ross_speechtotext_OfflineEngine_load(env, nullptr, path));
+        if (env->ExceptionCheck()) return 0;
+        transcribe_vad_session_params params;
+        transcribe_vad_session_params_init(&params);
+        params.n_threads = 1;
+        check(transcribe_vad_session_init(state->model, &params, &state->session));
+        return reinterpret_cast<jlong>(state.release());
+    } catch (const std::exception &error) { fail(env, error.what()); }
+      catch (...) { fail(env, "Could not create VAD"); }
+    return 0;
+}
+
+extern "C" JNIEXPORT jfloat JNICALL
+Java_com_ross_speechtotext_SileroVad_process(JNIEnv *env, jclass, jlong handle, jfloatArray frame) {
+    try {
+        if (!handle || !frame || env->GetArrayLength(frame) != 512) {
+            throw std::runtime_error("VAD requires 512 samples");
+        }
+        float pcm[512];
+        env->GetFloatArrayRegion(frame, 0, 512, pcm);
+        if (env->ExceptionCheck()) return 0;
+        auto *state = reinterpret_cast<SileroState *>(handle);
+        check(transcribe_vad_stream_feed(state->session, pcm, 512));
+        const float *probabilities = transcribe_vad_probs(state->session);
+        if (!probabilities) throw std::runtime_error("VAD returned no probability");
+        return probabilities[0];
+    } catch (const std::exception &error) { fail(env, error.what()); }
+      catch (...) { fail(env, "VAD processing failed"); }
+    return 0;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_ross_speechtotext_SileroVad_destroy(JNIEnv *, jclass, jlong handle) {
+    delete reinterpret_cast<SileroState *>(handle);
 }

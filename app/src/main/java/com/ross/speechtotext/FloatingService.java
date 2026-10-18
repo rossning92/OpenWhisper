@@ -644,6 +644,15 @@ public class FloatingService extends Service {
             }
 
             @Override
+            public void onSpeechEnded() {
+                mainHandler.post(() -> {
+                    if (isDictating && !isTranscribing && transcriber == session[0]) {
+                        finishDictation();
+                    }
+                });
+            }
+
+            @Override
             public void onFailure(String message) {
                 mainHandler.post(() -> {
                     if (transcriber == session[0]) handleTranscriberFailure(message);

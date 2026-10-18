@@ -17,6 +17,8 @@ final class LocalTranscriber implements Transcriber {
     private final File model;
     private final Listener listener;
     private final String vocabulary;
+    private final boolean autoFinish;
+    private final Context context;
     private final ByteArrayOutputStream audio = new ByteArrayOutputStream();
     private AudioRecord recorder;
     private Thread reader;
@@ -25,9 +27,12 @@ final class LocalTranscriber implements Transcriber {
     private volatile boolean closed;
 
     LocalTranscriber(Context context, Listener listener) {
+        this.context = context.getApplicationContext();
         this.modelInfo = OfflineModel.selected(context);
         this.model = modelInfo.file(context);
         this.listener = listener;
+        this.autoFinish = PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean("auto_finish_speech", false);
         this.vocabulary = modelInfo == OfflineModel.QWEN
                 ? PreferenceManager.getDefaultSharedPreferences(context)
                         .getString("custom_dictionary", "") : "";
@@ -58,10 +63,15 @@ final class LocalTranscriber implements Transcriber {
     }
 
     private void capture(AudioRecord current) {
-        byte[] buffer = new byte[1024];
-        try {
+        byte[] buffer = new byte[SileroVad.FRAME_SAMPLES * 2];
+        // Keep VAD creation, use and release on the capture thread.
+        try (SileroVad vad = autoFinish ? new SileroVad(context) : null) {
+            SpeechEndpoint endpoint = new SpeechEndpoint();
+            float[] pcm = vad == null ? null : new float[SileroVad.FRAME_SAMPLES];
+            boolean speech = false;
+            int filled = 0;
             while (recording) {
-                int count = current.read(buffer, 0, buffer.length);
+                int count = current.read(buffer, filled, buffer.length - filled);
                 if (count < 0) {
                     if (recording) throw new Exception("Microphone read failed: " + count);
                     break;
@@ -71,15 +81,27 @@ final class LocalTranscriber implements Transcriber {
                     if (audio.size() + count > MAX_BYTES) {
                         throw new Exception("Offline dictation is limited to 5 minutes per recording");
                     }
-                    audio.write(buffer, 0, count);
+                    audio.write(buffer, filled, count);
                 }
+                filled += count;
+                if (filled < buffer.length) continue;
+                filled = 0;
                 double squares = 0;
-                for (int i = 0; i + 1 < count; i += 2) {
+                for (int i = 0; i < buffer.length; i += 2) {
                     short sample = (short) ((buffer[i] & 255) | (buffer[i + 1] << 8));
-                    double value = sample / 32768.0;
+                    float value = sample / 32768.0f;
                     squares += value * value;
+                    if (pcm != null) pcm[i / 2] = value;
                 }
-                listener.onAmplitude(AudioLevel.fromNormalizedAmplitude(Math.sqrt(squares / (count / 2))));
+                listener.onAmplitude(AudioLevel.fromNormalizedAmplitude(
+                        Math.sqrt(squares / SileroVad.FRAME_SAMPLES)));
+                if (vad == null) continue;
+                // Hysteresis prevents uncertain frames from cutting off quiet speech.
+                speech = vad.probability(pcm) >= (speech ? 0.35f : 0.5f);
+                if (endpoint.accept(speech)) {
+                    if (recording) listener.onSpeechEnded();
+                    return;
+                }
             }
         } catch (Exception error) {
             failure = error.getMessage();

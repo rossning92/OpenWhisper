@@ -10,6 +10,12 @@
         android:key="offline_model_choice"
         android:title="Offline model" />
 
+    <SwitchPreferenceCompat
+        android:key="auto_finish_speech"
+        android:title="Auto-finish after speech"
+        android:summary="Send automatically after 1.5 seconds of silence following speech. Applies to the next recording."
+        android:defaultValue="false" />
+
     <EditTextPreference
         android:key="custom_dictionary"
         android:title="Custom dictionary"
