@@ -338,12 +338,17 @@ public class FloatingService extends Service {
     }
 
     private void applyFabColors(FloatingActionButton fab, boolean active) {
-        int background = active ? com.google.android.material.R.attr.colorPrimary
-                : com.google.android.material.R.attr.colorSurfaceContainerHigh;
-        int foreground = active ? com.google.android.material.R.attr.colorOnPrimary
-                : com.google.android.material.R.attr.colorOnSurfaceVariant;
-        fab.setBackgroundTintList(ColorStateList.valueOf(MaterialColors.getColor(fab, background)));
-        fab.setImageTintList(ColorStateList.valueOf(MaterialColors.getColor(fab, foreground)));
+        String color = PreferenceManager.getDefaultSharedPreferences(this).getString(
+                MainActivity.KEY_FLOATING_BUTTON_COLOR, "primary");
+        int[] colors = ButtonColors.resolve(fab.getContext(), color, active);
+        fab.setBackgroundTintList(ColorStateList.valueOf(colors[0]));
+        fab.setImageTintList(ColorStateList.valueOf(colors[1]));
+    }
+
+    public void updateControlColors() {
+        applyFabColors(floatingView, isDictating);
+        applyFabColors(termuxScriptView, false);
+        applyFabColors(cancelView, false);
     }
 
     private boolean readUseSmallControls() {

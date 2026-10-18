@@ -19,6 +19,11 @@
         android:defaultValue="normal"
         android:summary="%s" />
 
+    <com.ross.speechtotext.ButtonColorPreference
+        android:key="floating_button_color"
+        android:title="Floating button color"
+        android:defaultValue="primary" />
+
     <SwitchPreferenceCompat
         android:key="accessibility_status"
         android:title="Accessibility Service"
