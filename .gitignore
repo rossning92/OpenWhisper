@@ -11,3 +11,5 @@ local.properties
 /.signing/
 *.keystore
 *.jks
+
+/docs/screenshots/*.mp4

@@ -21,6 +21,23 @@ Android floating dictation app. Transcribes on device using Parakeet or Qwen3-AS
 - When no input field is focused: choose "Copy to clipboard" (default) or "Run Termux command (terminal button)" in Settings. Also applies when accessibility is unavailable. Changes take effect immediately.
 - Optional Termux action: set "Termux script path" in Settings to an absolute path or `~/` path, e.g. `~/bin/handle_transcription.sh`. Requires Termux, your script, and permission to run Termux commands. The script runs with Bash from the Termux home directory and receives the transcription as its first argument. No path is configured by default; an unset or incorrectly formatted path shows an error. Existing users must set their script path after updating.
 
+## Capture the demo
+
+Reproduce with AndroidX UI Automator on an unlocked, authorized phone with the debug app, a downloaded model, and Accessibility Service enabled. Turn off Auto-finish after speech. Requires the build tools above, Python 3, and `adb`.
+
+From the myscripts directory:
+
+```bash
+CWD="$PWD/repos/SpeechToText" run_script r/android/gradle.sh assembleDebug assembleDebugAndroidTest
+run_script repos/SpeechToText/scripts/capture_demo.py --serial DEVICE --video
+```
+
+`--video` requires FFmpeg and saves `docs/screenshots/demo.mp4` with the bundled voice track. Recording starts in the chat and ends after the message is sent. Upload the MP4 through GitHub's README editor and put its attachment URL on its own line for inline playback.
+
+The demo plays a bundled voice clip into the microphone, checks the transcription, and sends it in the local chat. Use a quiet room; media volume is restored afterward. Output: `docs/screenshots/`. The launcher reinstalls the debug APKs without clearing app data and reconnects the already-enabled accessibility service after testing.
+
+Only the two settings screenshots are saved. Use `--demo` to also check the message flow without video, or omit both flags for settings only. Use `--current NAME` for an extra screen without running tests, or `--output DIR` for another destination. Extend `app/src/androidTest/java/com/ross/speechtotext/DemoCaptureTest.java` for new flows. Outside myscripts, build with `./gradlew assembleDebug assembleDebugAndroidTest`, then use `python3 scripts/capture_demo.py --serial DEVICE --video`.
+
 ## Releases
 
 Push a tag such as `v1.0.1` to build a signed ARM64 APK and publish it with SHA-256 checksums on GitHub Releases. Tags must be `vMAJOR.MINOR.PATCH` with components 0-999; versionCode is `MAJOR * 1000000 + MINOR * 1000 + PATCH` and must increase for updates.
