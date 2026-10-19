@@ -26,6 +26,13 @@
         android:summary="%s" />
 
     <EditTextPreference
+        android:key="termux_script_path"
+        android:title="Termux script path"
+        android:dialogTitle="Termux script path"
+        android:dialogMessage="Absolute path or ~/ path, e.g. ~/bin/handle_transcription.sh. Runs with Bash from the Termux home directory; transcription is the first argument."
+        android:defaultValue="" />
+
+    <EditTextPreference
         android:key="custom_dictionary"
         android:title="Custom dictionary"
         android:dialogTitle="Custom dictionary"

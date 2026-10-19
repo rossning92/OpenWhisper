@@ -100,8 +100,7 @@ public class FloatingService extends Service {
     private static final String CHANNEL_ID = "FloatingServiceChannel";
     private static final String TERMUX_BASH_PATH =
             "/data/data/com.termux/files/usr/bin/bash";
-    private static final String TERMUX_SCRIPT_PATH =
-            "/data/data/com.termux/files/home/myscripts/bin/handle_transcription.sh";
+    private static final String TERMUX_HOME = "/data/data/com.termux/files/home";
     private Context themedContext;
     private Notification notification;
     private final BroadcastReceiver screenOffReceiver = new BroadcastReceiver() {
@@ -478,7 +477,7 @@ public class FloatingService extends Service {
                 mainHandler.post(() -> {
                     exitTranscribingMode();
                     if (runTermuxScript) {
-                        launchTermuxScript(text);
+                        runTermuxScript(this, text);
                     } else {
                         deliverTranscription(text);
                     }
@@ -495,34 +494,39 @@ public class FloatingService extends Service {
         });
     }
 
-    private void launchTermuxScript(String text) {
-        if (checkSelfPermission(TermuxPermissionActivity.RUN_COMMAND_PERMISSION)
-                != PackageManager.PERMISSION_GRANTED) {
-            Intent permissionIntent = new Intent(this, TermuxPermissionActivity.class);
-            permissionIntent.putExtra(TermuxPermissionActivity.EXTRA_TRANSCRIPTION, text);
-            permissionIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(permissionIntent);
+    static void runTermuxScript(Context context, String text) {
+        String scriptPath = PreferenceManager.getDefaultSharedPreferences(context)
+                .getString("termux_script_path", "").trim();
+        if (scriptPath.startsWith("~/")) {
+            scriptPath = TERMUX_HOME + scriptPath.substring(1);
+        }
+        if (!scriptPath.startsWith("/") || scriptPath.endsWith("/")) {
+            Toast.makeText(context,
+                    "Set a valid Termux script path in Settings (absolute path or ~/ path).",
+                    Toast.LENGTH_LONG).show();
             return;
         }
-        runTermuxScript(this, text);
-    }
-
-    static void runTermuxScript(Context context, String text) {
+        if (context.checkSelfPermission(TermuxPermissionActivity.RUN_COMMAND_PERMISSION)
+                != PackageManager.PERMISSION_GRANTED) {
+            Intent permissionIntent = new Intent(context, TermuxPermissionActivity.class);
+            permissionIntent.putExtra(TermuxPermissionActivity.EXTRA_TRANSCRIPTION, text);
+            permissionIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(permissionIntent);
+            return;
+        }
         Intent intent = new Intent("com.termux.RUN_COMMAND");
         intent.setClassName("com.termux", "com.termux.app.RunCommandService");
         intent.putExtra("com.termux.RUN_COMMAND_PATH", TERMUX_BASH_PATH);
         intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS",
-                new String[] { TERMUX_SCRIPT_PATH, text });
-        intent.putExtra("com.termux.RUN_COMMAND_WORKDIR",
-                "/data/data/com.termux/files/home/myscripts");
+                new String[] { "--", scriptPath, text });
+        intent.putExtra("com.termux.RUN_COMMAND_WORKDIR", TERMUX_HOME);
         intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", false);
-        // Session actions: 0 switches to the new session and opens Termux; 1 keeps the
-        // current session and opens Termux; 2 switches to the new session without
-        // opening Termux; 3 keeps the current session without opening Termux.
+        // Open Termux and switch to the new session.
         intent.putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0");
         try {
-            context.startService(intent);
-            Toast.makeText(context, "Running command in Termux", Toast.LENGTH_SHORT).show();
+            if (context.startService(intent) == null) {
+                Toast.makeText(context, "Unable to start Termux command", Toast.LENGTH_LONG).show();
+            }
         } catch (Exception e) {
             Toast.makeText(context, "Unable to run Termux command: " + e.getMessage(),
                     Toast.LENGTH_LONG).show();
@@ -676,7 +680,7 @@ public class FloatingService extends Service {
             String action = PreferenceManager.getDefaultSharedPreferences(this)
                     .getString("no_input_action", "clipboard");
             if ("termux".equals(action)) {
-                launchTermuxScript(text);
+                runTermuxScript(this, text);
                 return;
             }
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);

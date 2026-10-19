@@ -46,6 +46,13 @@ public class SettingsActivity extends AppCompatActivity {
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             setPreferencesFromResource(R.xml.preferences, rootKey);
+            EditTextPreference scriptPath = findPreference("termux_script_path");
+            scriptPath.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
+            scriptPath.setOnBindEditTextListener(edit -> {
+                edit.setInputType(InputType.TYPE_CLASS_TEXT
+                        | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+                edit.setSingleLine(true);
+            });
             EditTextPreference dictionary = findPreference("custom_dictionary");
             dictionary.setOnBindEditTextListener(edit -> {
                 edit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
