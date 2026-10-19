@@ -1,5 +1,9 @@
 # Speech To Text
 
+https://github.com/user-attachments/assets/49acff04-5619-49ba-93c3-5d43468ca49a
+
+On-device dictation demonstrated in a local chat.
+
 Android floating dictation app. Transcribes on device using Parakeet or Qwen3-ASR via transcribe.cpp; audio stays on the device. Recordings are limited to 5 minutes.
 
 - Requirements: Android 8.0+ and an ARM64 CPU with FP16 SIMD and dot-product support.
