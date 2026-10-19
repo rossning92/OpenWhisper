@@ -4,9 +4,10 @@ https://github.com/user-attachments/assets/49acff04-5619-49ba-93c3-5d43468ca49a
 
 On-device dictation demonstrated in a local chat.
 
-| Enable the floating button | Choose an offline model |
-| --- | --- |
-| <img src="docs/screenshots/01-ready.png" width="240" alt="Settings and floating dictation button"> | <img src="docs/screenshots/02-models.png" width="240" alt="Offline model picker"> |
+<p>
+  <img src="docs/screenshots/01-ready.png" width="240" alt="Settings and floating dictation button">
+  <img src="docs/screenshots/02-models.png" width="240" alt="Offline model picker">
+</p>
 
 Android floating dictation app. Transcribes on device using Parakeet or Qwen3-ASR via transcribe.cpp; audio stays on the device. Recordings are limited to 5 minutes.
 
