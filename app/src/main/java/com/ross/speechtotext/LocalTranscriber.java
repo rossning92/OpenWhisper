@@ -4,6 +4,7 @@ import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.util.Log;
 import androidx.preference.PreferenceManager;
 
 import java.io.ByteArrayOutputStream;
@@ -11,6 +12,7 @@ import java.io.File;
 import java.util.concurrent.ExecutionException;
 
 final class LocalTranscriber implements Transcriber {
+    private static final String TAG = "LocalTranscriber";
     private static final int SAMPLE_RATE = 16000;
     private static final int MAX_BYTES = SAMPLE_RATE * 2 * 5 * 60;
     private final OfflineModel modelInfo;
@@ -39,21 +41,21 @@ final class LocalTranscriber implements Transcriber {
     }
 
     @Override public void start() throws Exception {
-        if (!modelInfo.ready(model)) throw new Exception("Open Speech To Text and download " + modelInfo.label + " first");
-        if (!OfflineEngine.supported()) throw new Exception("Offline transcription is not supported by this CPU");
+        if (!modelInfo.ready(model)) throw new Exception(context.getString(R.string.model_required, modelInfo.label));
+        if (!OfflineEngine.supported()) throw new Exception(context.getString(R.string.offline_unsupported));
         int size = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT);
-        if (size <= 0) throw new Exception("16 kHz recording is unavailable");
+        if (size <= 0) throw new Exception(context.getString(R.string.recording_unavailable));
         recorder = new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, SAMPLE_RATE,
                 AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, Math.max(size, 4096));
         if (recorder.getState() != AudioRecord.STATE_INITIALIZED) {
             recorder.release();
             recorder = null;
-            throw new Exception("Could not open microphone");
+            throw new Exception(context.getString(R.string.microphone_open_failed));
         }
         recorder.startRecording();
         if (recorder.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) {
-            throw new Exception("Microphone did not start");
+            throw new Exception(context.getString(R.string.microphone_start_failed));
         }
         recording = true;
         AudioRecord current = recorder;
@@ -73,13 +75,13 @@ final class LocalTranscriber implements Transcriber {
             while (recording) {
                 int count = current.read(buffer, filled, buffer.length - filled);
                 if (count < 0) {
-                    if (recording) throw new Exception("Microphone read failed: " + count);
+                    if (recording) throw new Exception(context.getString(R.string.microphone_read_failed, count));
                     break;
                 }
                 if (count == 0) continue;
                 synchronized (audio) {
                     if (audio.size() + count > MAX_BYTES) {
-                        throw new Exception("Offline dictation is limited to 5 minutes per recording");
+                        throw new Exception(context.getString(R.string.recording_too_long));
                     }
                     audio.write(buffer, filled, count);
                 }
@@ -104,7 +106,12 @@ final class LocalTranscriber implements Transcriber {
                 }
             }
         } catch (Exception error) {
-            failure = error.getMessage();
+            if (error instanceof IllegalStateException) {
+                Log.e(TAG, "Native VAD failed", error);
+                failure = context.getString(R.string.offline_transcription_failed);
+            } else {
+                failure = error.getMessage();
+            }
             listener.onFailure(failure);
         }
     }
@@ -124,25 +131,26 @@ final class LocalTranscriber implements Transcriber {
     }
 
     @Override public String finish() throws Exception {
-        if (closed) throw new Exception("Recording cancelled");
+        if (closed) throw new Exception(context.getString(R.string.recording_cancelled));
         if (failure != null) throw new Exception(failure);
         byte[] bytes;
         synchronized (audio) { bytes = audio.toByteArray(); }
-        if (bytes.length < 2) throw new Exception("No audio recorded");
+        if (bytes.length < 2) throw new Exception(context.getString(R.string.no_audio_recorded));
         float[] pcm = new float[bytes.length / 2];
         for (int i = 0; i < pcm.length; ++i) {
             pcm[i] = (short) ((bytes[i * 2] & 255) | (bytes[i * 2 + 1] << 8)) / 32768.0f;
         }
         try {
             String text = OfflineEngine.transcribe(model, pcm, vocabulary).get();
-            if (closed) throw new Exception("Recording cancelled");
+            if (closed) throw new Exception(context.getString(R.string.recording_cancelled));
             return text;
         } catch (ExecutionException error) {
-            throw new Exception(error.getCause().getMessage(), error.getCause());
+            Log.e(TAG, "Native transcription failed", error.getCause());
+            throw new Exception(context.getString(R.string.offline_transcription_failed), error.getCause());
         }
     }
 
-    @Override public String getFinishingMessage() { return "Transcribing on device"; }
+    @Override public String getFinishingMessage() { return context.getString(R.string.transcribing_on_device); }
     @Override public boolean canRetry() {
         synchronized (audio) { return !closed && failure == null && audio.size() > 0; }
     }

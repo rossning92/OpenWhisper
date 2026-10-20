@@ -13,7 +13,7 @@
     <queries>
         <package android:name="com.termux" />
     </queries>
-    <application android:name=".SpeechToTextApplication" android:label="Speech To Text" android:icon="@mipmap/ic_launcher" android:theme="@android:style/Theme.DeviceDefault">
+    <application android:name=".SpeechToTextApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:theme="@android:style/Theme.DeviceDefault">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

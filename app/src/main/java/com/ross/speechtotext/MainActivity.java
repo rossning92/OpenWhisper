@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
                     openSettings();
                 }
             } else {
-                Toast.makeText(this, "Overlay permission denied", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.overlay_permission_denied, Toast.LENGTH_SHORT).show();
                 finish();
             }
         }
@@ -53,7 +53,7 @@ public class MainActivity extends Activity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 openSettings();
             } else {
-                Toast.makeText(this, "Microphone permission denied", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.microphone_permission_denied, Toast.LENGTH_SHORT).show();
                 finish();
             }
         }

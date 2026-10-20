@@ -2,24 +2,24 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <SwitchPreferenceCompat
         android:key="feature_enabled"
-        android:title="Enable Speech To Text"
-        android:summary="Show the floating dictation button and run at startup"
+        android:title="@string/pref_enable_title"
+        android:summary="@string/pref_enable_summary"
         android:defaultValue="true" />
 
     <Preference
         android:key="offline_model_choice"
-        android:title="Offline model" />
+        android:title="@string/pref_offline_model" />
 
     <SwitchPreferenceCompat
         android:key="auto_finish_speech"
-        android:title="Auto-finish after speech"
-        android:summary="Send automatically after 1.5 seconds of silence following speech. Applies to the next recording."
+        android:title="@string/pref_auto_finish_title"
+        android:summary="@string/pref_auto_finish_summary"
         android:defaultValue="false" />
 
     <ListPreference
         android:key="no_input_action"
-        android:title="When no input field is focused"
-        android:dialogTitle="When no input field is focused"
+        android:title="@string/pref_no_input_title"
+        android:dialogTitle="@string/pref_no_input_title"
         android:entries="@array/no_input_action_entries"
         android:entryValues="@array/no_input_action_values"
         android:defaultValue="clipboard"
@@ -27,23 +27,23 @@
 
     <EditTextPreference
         android:key="termux_script_path"
-        android:title="Termux script path"
-        android:dialogTitle="Termux script path"
-        android:dialogMessage="Absolute path or ~/ path, e.g. ~/bin/handle_transcription.sh. Runs with Bash from the Termux home directory; transcription is the first argument."
+        android:title="@string/pref_termux_path_title"
+        android:dialogTitle="@string/pref_termux_path_title"
+        android:dialogMessage="@string/pref_termux_path_message"
         android:defaultValue="" />
 
     <EditTextPreference
         android:key="custom_dictionary"
-        android:title="Custom dictionary"
-        android:dialogTitle="Custom dictionary"
-        android:dialogMessage="One word or phrase per line, most important first. Qwen3-ASR uses these as spelling hints. Clear the list to turn it off."
-        android:summary="Names and technical terms for Qwen3-ASR only; not used by Parakeet"
+        android:title="@string/pref_dictionary_title"
+        android:dialogTitle="@string/pref_dictionary_title"
+        android:dialogMessage="@string/pref_dictionary_message"
+        android:summary="@string/pref_dictionary_summary"
         android:defaultValue="" />
 
     <ListPreference
         android:key="floating_button_size"
-        android:title="Floating button size"
-        android:dialogTitle="Floating button size"
+        android:title="@string/pref_button_size_title"
+        android:dialogTitle="@string/pref_button_size_title"
         android:entries="@array/floating_button_size_entries"
         android:entryValues="@array/floating_button_size_values"
         android:defaultValue="normal"
@@ -51,12 +51,12 @@
 
     <com.ross.speechtotext.ButtonColorPreference
         android:key="floating_button_color"
-        android:title="Floating button color"
+        android:title="@string/pref_button_color_title"
         android:defaultValue="primary" />
 
     <SwitchPreferenceCompat
         android:key="accessibility_status"
-        android:title="Accessibility Service"
-        android:summary="Types dictated text into focused fields. When enabled, the floating control uses a trusted accessibility overlay so protected screens, such as browser permission prompts, remain usable. When disabled, the control uses Draw over other apps instead."
+        android:title="@string/pref_accessibility_title"
+        android:summary="@string/pref_accessibility_summary"
         android:persistent="false" />
 </PreferenceScreen>

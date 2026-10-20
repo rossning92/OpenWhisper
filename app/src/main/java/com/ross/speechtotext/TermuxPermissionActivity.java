@@ -36,7 +36,7 @@ public class TermuxPermissionActivity extends Activity {
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             runTermuxScriptAndFinish();
         } else {
-            Toast.makeText(this, "Termux command permission denied", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.termux_permission_denied, Toast.LENGTH_SHORT).show();
             finish();
         }
     }

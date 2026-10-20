@@ -65,10 +65,10 @@ public final class ModelDownloadService extends Service {
                 if (model.key.equals(key)) selectedModel = model;
             }
         }
-        status = "Downloading " + selectedModel.label + "...";
+        status = getString(R.string.download_status_starting, selectedModel.label);
         statusModel = selectedModel;
         NotificationManager manager = getSystemService(NotificationManager.class);
-        manager.createNotificationChannel(new NotificationChannel(CHANNEL, "Offline model download",
+        manager.createNotificationChannel(new NotificationChannel(CHANNEL, getString(R.string.offline_download_channel),
                 NotificationManager.IMPORTANCE_LOW));
         startForeground(NOTIFICATION, notification(0));
         new Thread(() -> download(), "OfflineModelDownload").start();
@@ -82,10 +82,10 @@ public final class ModelDownloadService extends Service {
                 new Intent(this, ModelDownloadService.class).setAction(CANCEL),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_graphic_eq)
-                .setContentTitle("Downloading " + selectedModel.label).setContentText(status)
+                .setContentTitle(getString(R.string.download_title, selectedModel.label)).setContentText(status)
                 .setContentIntent(open).setOnlyAlertOnce(true).setOngoing(true)
                 .setProgress(100, progress, false)
-                .addAction(new Notification.Action.Builder(null, "Cancel", cancel).build()).build();
+                .addAction(new Notification.Action.Builder(null, getString(R.string.cancel), cancel).build()).build();
     }
 
     private void download() {
@@ -95,13 +95,13 @@ public final class ModelDownloadService extends Service {
         try {
             if (model.ready(target)) {
                 model.select(this);
-                status = "Ready: " + model.label;
+                status = getString(R.string.download_ready, model.label);
                 return;
             }
-            if (partial.exists() && !partial.delete()) throw new Exception("Could not clear interrupted download");
+            if (partial.exists() && !partial.delete()) throw new Exception(getString(R.string.download_clear_failed));
             if (target.getParentFile().getUsableSpace() < model.bytes + 64 * 1024 * 1024) {
                 long requiredMB = (model.bytes + 64 * 1024 * 1024 + 999999) / 1000000;
-                throw new Exception("Not enough storage; free at least " + requiredMB + " MB");
+                throw new Exception(getString(R.string.download_storage_failed, requiredMB));
             }
             OkHttpClient client = new OkHttpClient.Builder().connectTimeout(30, TimeUnit.SECONDS)
                     .readTimeout(60, TimeUnit.SECONDS).build();
@@ -112,22 +112,22 @@ public final class ModelDownloadService extends Service {
             int lastProgress = -1;
             try (Response response = call.execute()) {
                 if (!response.isSuccessful() || response.body() == null) {
-                    throw new Exception("Download failed: HTTP " + response.code());
+                    throw new Exception(getString(R.string.download_http_failed, response.code()));
                 }
                 try (InputStream input = response.body().byteStream();
                      FileOutputStream output = new FileOutputStream(partial)) {
                     byte[] buffer = new byte[65536];
                     int size;
                     while ((size = input.read(buffer)) != -1) {
-                        if (cancelled) throw new Exception("Download cancelled");
+                        if (cancelled) throw new Exception(getString(R.string.download_cancelled));
                         count += size;
-                        if (count > model.bytes) throw new Exception("Unexpected model size");
+                        if (count > model.bytes) throw new Exception(getString(R.string.download_unexpected_size));
                         hash.update(buffer, 0, size);
                         output.write(buffer, 0, size);
                         int progress = (int) (count * 100 / model.bytes);
                         if (progress != lastProgress) {
                             lastProgress = progress;
-                            status = "Downloading " + model.label + ": " + progress + "%";
+                            status = getString(R.string.download_status_progress, model.label, progress);
                             getSystemService(NotificationManager.class).notify(NOTIFICATION, notification(progress));
                         }
                     }
@@ -137,16 +137,16 @@ public final class ModelDownloadService extends Service {
             StringBuilder digest = new StringBuilder();
             for (byte value : hash.digest()) digest.append(String.format(Locale.ROOT, "%02x", value & 255));
             if (count != model.bytes || !model.sha256.equals(digest.toString())) {
-                throw new Exception("Model verification failed; tap to retry");
+                throw new Exception(getString(R.string.download_verification_failed));
             }
-            if (cancelled) throw new Exception("Download cancelled");
-            if (!partial.renameTo(target)) throw new Exception("Could not save model");
+            if (cancelled) throw new Exception(getString(R.string.download_cancelled));
+            if (!partial.renameTo(target)) throw new Exception(getString(R.string.download_save_failed));
             model.select(this);
-            status = "Ready: " + model.label;
+            status = getString(R.string.download_ready, model.label);
         } catch (Exception error) {
             String message = error.getMessage();
-            status = cancelled ? "Download cancelled; tap to retry"
-                    : (message != null ? message : "Download failed; tap to retry");
+            status = cancelled ? getString(R.string.download_cancelled_retry)
+                    : (message != null ? message : getString(R.string.download_failed_retry));
         } finally {
             partial.delete();
             call = null;

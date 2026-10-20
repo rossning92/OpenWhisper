@@ -124,7 +124,9 @@ public class SettingsActivity extends AppCompatActivity {
             for (int i = 0; i < OfflineModel.ALL.length; i++) {
                 OfflineModel model = OfflineModel.ALL[i];
                 TextView title = new TextView(requireContext());
-                title.setText(model.label + " - " + model.languages);
+                int language = model == OfflineModel.PARAKEET
+                        ? R.string.language_english : R.string.language_multilingual;
+                title.setText(getString(R.string.model_title, model.label, getString(language)));
                 title.setTextSize(16);
                 rows.addView(title);
                 modelStatuses[i] = new TextView(requireContext());
@@ -149,8 +151,8 @@ public class SettingsActivity extends AppCompatActivity {
             }
             ScrollView scroll = new ScrollView(requireContext());
             scroll.addView(rows);
-            modelDialog = new AlertDialog.Builder(requireContext()).setTitle("Offline model")
-                    .setView(scroll).setPositiveButton("Done", null).create();
+            modelDialog = new AlertDialog.Builder(requireContext()).setTitle(R.string.pref_offline_model)
+                    .setView(scroll).setPositiveButton(R.string.done, null).create();
             modelDialog.setOnDismissListener(dialog -> {
                 modelDialog = null;
                 modelStatuses = null;
@@ -169,18 +171,19 @@ public class SettingsActivity extends AppCompatActivity {
             Preference pref = findPreference(OfflineModel.PREFERENCE);
             if (!OfflineEngine.supported()) {
                 pref.setEnabled(false);
-                pref.setSummary("Offline transcription is not supported by this CPU");
+                pref.setSummary(R.string.offline_unsupported);
                 return;
             }
             OfflineModel selected = OfflineModel.selected(requireContext());
             if (pendingDownload != null && ModelDownloadService.statusFor(pendingDownload) != null) {
                 pendingDownload = null;
             }
-            pref.setSummary(selected.label + (selected.ready(requireContext())
-                    ? " - Ready" : " - Download required"));
+            pref.setSummary(getString(R.string.model_summary, selected.label,
+                    getString(selected.ready(requireContext()) ? R.string.ready : R.string.download_required)));
             for (OfflineModel model : OfflineModel.ALL) {
                 if (ModelDownloadService.isDownloading(model)) {
-                    pref.setSummary(selected.label + " - " + ModelDownloadService.statusFor(model));
+                    pref.setSummary(getString(R.string.model_summary, selected.label,
+                            ModelDownloadService.statusFor(model)));
                     break;
                 }
             }
@@ -192,14 +195,15 @@ public class SettingsActivity extends AppCompatActivity {
                 String status = ModelDownloadService.statusFor(model);
                 String action;
                 if (downloading) {
-                    action = "Cancel";
+                    action = getString(R.string.cancel);
                 } else if (ready) {
-                    status = model == selected ? "Ready - Selected" : "Ready";
-                    action = "Select";
+                    status = getString(model == selected ? R.string.ready_selected : R.string.ready);
+                    action = getString(R.string.select);
                 } else {
-                    action = (status == null ? "Download - " : "Retry - ") + model.megabytes() + " MB";
-                    if (pendingDownload == model) status = "Starting download...";
-                    else if (status == null) status = "Download required";
+                    action = getString(status == null ? R.string.download_size : R.string.retry_size,
+                            model.megabytes());
+                    if (pendingDownload == model) status = getString(R.string.starting_download);
+                    else if (status == null) status = getString(R.string.download_required);
                 }
                 modelStatuses[i].setText(status);
                 modelActions[i].setText(action);

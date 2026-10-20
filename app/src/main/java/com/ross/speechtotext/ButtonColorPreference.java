@@ -38,7 +38,8 @@ public final class ButtonColorPreference extends Preference {
             swatch.setChecked(checked);
             swatch.setText("");
             swatch.setAllCaps(false);
-            swatch.setContentDescription(i == 0 ? "Default color" : "Color option " + (i + 1));
+            swatch.setContentDescription(i == 0 ? getContext().getString(R.string.default_color)
+                    : getContext().getString(R.string.color_option, i + 1));
             swatch.setBackgroundTintList(ColorStateList.valueOf(colors[0]));
             swatch.setTextColor(colors[1]);
             swatch.setIconTint(ColorStateList.valueOf(colors[1]));

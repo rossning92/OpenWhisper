@@ -170,8 +170,8 @@ public class FloatingService extends Service {
         createNotificationChannel();
 
         notification = new Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("Speech To Text")
-                .setContentText("Service is running")
+                .setContentTitle(getString(R.string.app_name))
+                .setContentText(getString(R.string.service_running))
                 .setSmallIcon(R.drawable.ic_graphic_eq)
                 .build();
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
@@ -184,12 +184,12 @@ public class FloatingService extends Service {
         updateWaveformDimensions();
 
         floatingView = createFab(R.drawable.ic_graphic_eq);
-        floatingView.setContentDescription("Start dictation");
+        floatingView.setContentDescription(getString(R.string.start_dictation));
         floatingView.setHapticFeedbackEnabled(true);
         floatingView.setOnClickListener(v -> toggleDictation());
 
         cancelView = createFab(R.drawable.ic_close);
-        cancelView.setContentDescription("Cancel dictation");
+        cancelView.setContentDescription(getString(R.string.cancel_dictation));
         cancelView.setVisibility(View.GONE);
         cancelView.setOnClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
@@ -198,7 +198,7 @@ public class FloatingService extends Service {
 
         termuxScriptView = createFab(R.drawable.ic_terminal);
         termuxScriptView.setVisibility(View.GONE);
-        termuxScriptView.setContentDescription("Stop and run Termux script");
+        termuxScriptView.setContentDescription(getString(R.string.stop_and_run_termux));
         termuxScriptView.setOnClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             if (isDictating && !isTranscribing) finishDictation(true);
@@ -432,7 +432,7 @@ public class FloatingService extends Service {
         isDictating = true;
         applyFabColors(floatingView, true);
         floatingView.setImageResource(R.drawable.ic_send);
-        floatingView.setContentDescription("Stop and transcribe");
+        floatingView.setContentDescription(getString(R.string.stop_and_transcribe));
         waveformView.clear();
         waveformView.setVisibility(View.VISIBLE);
         termuxScriptView.setVisibility(View.VISIBLE);
@@ -459,7 +459,7 @@ public class FloatingService extends Service {
         restoreNonMicrophoneForegroundType();
         exitDictationMode();
         if (current == null) {
-            showTranscriptionError(new Exception("Transcription did not start"), null);
+            showTranscriptionError(new Exception(getString(R.string.transcription_did_not_start)), null);
             return;
         }
         finishTranscription(current, runTermuxScript);
@@ -502,7 +502,7 @@ public class FloatingService extends Service {
         }
         if (!scriptPath.startsWith("/") || scriptPath.endsWith("/")) {
             Toast.makeText(context,
-                    "Set a valid Termux script path in Settings (absolute path or ~/ path).",
+                    context.getString(R.string.invalid_termux_path),
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -525,10 +525,10 @@ public class FloatingService extends Service {
         intent.putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0");
         try {
             if (context.startService(intent) == null) {
-                Toast.makeText(context, "Unable to start Termux command", Toast.LENGTH_LONG).show();
+                Toast.makeText(context, R.string.termux_start_failed, Toast.LENGTH_LONG).show();
             }
         } catch (Exception e) {
-            Toast.makeText(context, "Unable to run Termux command: " + e.getMessage(),
+            Toast.makeText(context, context.getString(R.string.termux_run_failed, e.getMessage()),
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -553,12 +553,12 @@ public class FloatingService extends Service {
         scrollView.addView(messageView);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(themedContext)
-                .setTitle("Transcription failed")
+                .setTitle(R.string.transcription_failed)
                 .setView(scrollView)
-                .setNegativeButton("Close", (d, which) -> closeFailedTranscriber())
+                .setNegativeButton(R.string.close, (d, which) -> closeFailedTranscriber())
                 .setOnCancelListener(d -> closeFailedTranscriber());
         if (retryableTranscriber != null) {
-            builder.setPositiveButton("Retry", (d, which) -> {
+            builder.setPositiveButton(R.string.retry, (d, which) -> {
                 transcriptionErrorDialog = null;
                 failedTranscriber = null;
                 finishTranscription(retryableTranscriber, failedTranscriptionRunsTermuxScript);
@@ -585,7 +585,7 @@ public class FloatingService extends Service {
     private void enterTranscribingMode() {
         isTranscribing = true;
         floatingView.setImageResource(android.R.drawable.ic_popup_sync);
-        floatingView.setContentDescription("Transcribing");
+        floatingView.setContentDescription(getString(R.string.transcribing));
         spinAnimator = ObjectAnimator.ofFloat(floatingView, "alpha", 1f, 0.3f);
         spinAnimator.setDuration(600);
         spinAnimator.setRepeatCount(ValueAnimator.INFINITE);
@@ -605,7 +605,7 @@ public class FloatingService extends Service {
 
     private void resetFabToDefault() {
         floatingView.setImageResource(R.drawable.ic_graphic_eq);
-        floatingView.setContentDescription("Start dictation");
+        floatingView.setContentDescription(getString(R.string.start_dictation));
         applyFabColors(floatingView, false);
     }
 
@@ -629,7 +629,7 @@ public class FloatingService extends Service {
             }
             current.start();
         } catch (Exception e) {
-            Toast.makeText(this, "Recording failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.recording_failed, e.getMessage()), Toast.LENGTH_SHORT).show();
             closeTranscriber(transcriber);
             exitDictationMode();
         }
@@ -685,7 +685,7 @@ public class FloatingService extends Service {
             }
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
             clipboard.setPrimaryClip(ClipData.newPlainText("transcription", text));
-            Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -756,7 +756,7 @@ public class FloatingService extends Service {
     private void createNotificationChannel() {
         NotificationChannel serviceChannel = new NotificationChannel(
                 CHANNEL_ID,
-                "Floating Service Channel",
+                getString(R.string.floating_service_channel),
                 NotificationManager.IMPORTANCE_LOW);
         NotificationManager manager = getSystemService(NotificationManager.class);
         manager.createNotificationChannel(serviceChannel);
