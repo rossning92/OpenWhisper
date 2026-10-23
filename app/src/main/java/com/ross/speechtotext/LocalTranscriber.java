@@ -15,6 +15,7 @@ final class LocalTranscriber implements Transcriber {
     private static final String TAG = "LocalTranscriber";
     private static final int SAMPLE_RATE = 16000;
     private static final int MAX_BYTES = SAMPLE_RATE * 2 * 5 * 60;
+    private static final float VAD_THRESHOLD = 0.3f;
     private final OfflineModel modelInfo;
     private final File model;
     private final Listener listener;
@@ -67,11 +68,19 @@ final class LocalTranscriber implements Transcriber {
     private void capture(AudioRecord current) {
         byte[] buffer = new byte[SileroVad.FRAME_SAMPLES * 2];
         // Keep VAD creation, use and release on the capture thread.
-        try (SileroVad vad = autoFinish ? new SileroVad(context) : null) {
+        SileroVad vad = null;
+        try {
+            try {
+                vad = new SileroVad(context);
+            } catch (Exception error) {
+                Log.e(TAG, "VAD unavailable; keeping unfiltered audio", error);
+            }
             SpeechEndpoint endpoint = new SpeechEndpoint();
-            float[] pcm = vad == null ? null : new float[SileroVad.FRAME_SAMPLES];
+            VadAudioFilter filter = new VadAudioFilter();
+            float[] pcm = new float[SileroVad.FRAME_SAMPLES];
             boolean speech = false;
             int filled = 0;
+            int capturedBytes = 0;
             while (recording) {
                 int count = current.read(buffer, filled, buffer.length - filled);
                 if (count < 0) {
@@ -79,11 +88,9 @@ final class LocalTranscriber implements Transcriber {
                     break;
                 }
                 if (count == 0) continue;
-                synchronized (audio) {
-                    if (audio.size() + count > MAX_BYTES) {
-                        throw new Exception(context.getString(R.string.recording_too_long));
-                    }
-                    audio.write(buffer, filled, count);
+                capturedBytes += count;
+                if (capturedBytes > MAX_BYTES) {
+                    throw new Exception(context.getString(R.string.recording_too_long));
                 }
                 filled += count;
                 if (filled < buffer.length) continue;
@@ -93,26 +100,34 @@ final class LocalTranscriber implements Transcriber {
                     short sample = (short) ((buffer[i] & 255) | (buffer[i + 1] << 8));
                     float value = sample / 32768.0f;
                     squares += value * value;
-                    if (pcm != null) pcm[i / 2] = value;
+                    pcm[i / 2] = value;
                 }
                 listener.onAmplitude(AudioLevel.fromNormalizedAmplitude(
                         Math.sqrt(squares / SileroVad.FRAME_SAMPLES)));
-                if (vad == null) continue;
-                // Hysteresis prevents uncertain frames from cutting off quiet speech.
-                speech = vad.probability(pcm) >= (speech ? 0.35f : 0.5f);
-                if (endpoint.accept(speech)) {
+                if (vad == null) {
+                    synchronized (audio) { audio.write(buffer, 0, buffer.length); }
+                    continue;
+                }
+                try {
+                    speech = vad.probability(pcm) > VAD_THRESHOLD;
+                } catch (IllegalStateException error) {
+                    Log.e(TAG, "VAD failed; keeping remaining audio unfiltered", error);
+                    vad.close();
+                    vad = null;
+                    synchronized (audio) { audio.write(buffer, 0, buffer.length); }
+                    continue;
+                }
+                synchronized (audio) { filter.accept(buffer, speech, audio); }
+                if (autoFinish && endpoint.accept(speech)) {
                     if (recording) listener.onSpeechEnded();
                     return;
                 }
             }
         } catch (Exception error) {
-            if (error instanceof IllegalStateException) {
-                Log.e(TAG, "Native VAD failed", error);
-                failure = context.getString(R.string.offline_transcription_failed);
-            } else {
-                failure = error.getMessage();
-            }
+            failure = error.getMessage();
             listener.onFailure(failure);
+        } finally {
+            if (vad != null) vad.close();
         }
     }
 
