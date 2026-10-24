@@ -11,6 +11,8 @@ On-device dictation demonstrated in a local chat.
 
 Android floating dictation app. Transcribes on device using Parakeet or Qwen3-ASR via transcribe.cpp; audio stays on the device. Recordings are limited to 5 minutes.
 
+Parakeet transcription streams while recording, so long dictations need little final processing. Qwen3-ASR uses batch transcription.
+
 - Requirements: Android 8.0+ and an ARM64 CPU with FP16 SIMD and dot-product support.
 - Setup: open the app, grant microphone and overlay permissions, choose Parakeet (English, 731 MB) or Qwen3-ASR (multilingual, 850 MB), then download it. Internet is needed for the download; transcription works offline afterward.
 - Custom dictionary: in Settings, enter one word or phrase per line, most important first. Qwen3-ASR uses these as hints; Parakeet ignores them. Blank lines and duplicates are ignored. Clear the list to disable it. Long lists may be shortened to fit the model's context.

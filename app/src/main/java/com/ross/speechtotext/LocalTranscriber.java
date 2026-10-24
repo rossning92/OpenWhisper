@@ -15,6 +15,7 @@ final class LocalTranscriber implements Transcriber {
     private static final String TAG = "LocalTranscriber";
     private static final int SAMPLE_RATE = 16000;
     private static final int MAX_BYTES = SAMPLE_RATE * 2 * 5 * 60;
+    private static final int STREAM_BYTES = SAMPLE_RATE * 2;
     private static final float VAD_THRESHOLD = 0.3f;
     private final OfflineModel modelInfo;
     private final File model;
@@ -23,6 +24,9 @@ final class LocalTranscriber implements Transcriber {
     private final boolean autoFinish;
     private final Context context;
     private final ByteArrayOutputStream audio = new ByteArrayOutputStream();
+    private final ByteArrayOutputStream streamBuffer = new ByteArrayOutputStream();
+    private OfflineEngine.Stream stream;
+    private int streamChunks;
     private AudioRecord recorder;
     private Thread reader;
     private volatile boolean recording;
@@ -62,7 +66,8 @@ final class LocalTranscriber implements Transcriber {
         AudioRecord current = recorder;
         reader = new Thread(() -> capture(current), "OfflineAudio");
         reader.start();
-        OfflineEngine.warmUp(model);
+        if (modelInfo.streaming) stream = OfflineEngine.startStream(model);
+        else OfflineEngine.warmUp(model);
     }
 
     private void capture(AudioRecord current) {
@@ -77,6 +82,7 @@ final class LocalTranscriber implements Transcriber {
             }
             SpeechEndpoint endpoint = new SpeechEndpoint();
             VadAudioFilter filter = new VadAudioFilter();
+            ByteArrayOutputStream accepted = new ByteArrayOutputStream();
             float[] pcm = new float[SileroVad.FRAME_SAMPLES];
             boolean speech = false;
             int filled = 0;
@@ -105,7 +111,7 @@ final class LocalTranscriber implements Transcriber {
                 listener.onAmplitude(AudioLevel.fromNormalizedAmplitude(
                         Math.sqrt(squares / SileroVad.FRAME_SAMPLES)));
                 if (vad == null) {
-                    synchronized (audio) { audio.write(buffer, 0, buffer.length); }
+                    appendAudio(buffer);
                     continue;
                 }
                 try {
@@ -114,10 +120,12 @@ final class LocalTranscriber implements Transcriber {
                     Log.e(TAG, "VAD failed; keeping remaining audio unfiltered", error);
                     vad.close();
                     vad = null;
-                    synchronized (audio) { audio.write(buffer, 0, buffer.length); }
+                    appendAudio(buffer);
                     continue;
                 }
-                synchronized (audio) { filter.accept(buffer, speech, audio); }
+                accepted.reset();
+                filter.accept(buffer, speech, accepted);
+                appendAudio(accepted.toByteArray());
                 if (autoFinish && endpoint.accept(speech)) {
                     if (recording) listener.onSpeechEnded();
                     return;
@@ -129,6 +137,30 @@ final class LocalTranscriber implements Transcriber {
         } finally {
             if (vad != null) vad.close();
         }
+    }
+
+    private void appendAudio(byte[] bytes) {
+        if (bytes.length == 0) return;
+        synchronized (audio) { audio.write(bytes, 0, bytes.length); }
+        if (stream == null) return;
+        streamBuffer.write(bytes, 0, bytes.length);
+        if (streamBuffer.size() >= STREAM_BYTES) flushStreamBuffer();
+    }
+
+    private void flushStreamBuffer() {
+        byte[] bytes = streamBuffer.toByteArray();
+        streamBuffer.reset();
+        if (bytes.length == 0) return;
+        stream.feed(decodePcm(bytes));
+        streamChunks++;
+    }
+
+    private static float[] decodePcm(byte[] bytes) {
+        float[] pcm = new float[bytes.length / 2];
+        for (int i = 0; i < pcm.length; ++i) {
+            pcm[i] = (short) ((bytes[i * 2] & 255) | (bytes[i * 2 + 1] << 8)) / 32768.0f;
+        }
+        return pcm;
     }
 
     @Override public void stop() {
@@ -151,15 +183,33 @@ final class LocalTranscriber implements Transcriber {
         byte[] bytes;
         synchronized (audio) { bytes = audio.toByteArray(); }
         if (bytes.length < 2) throw new Exception(context.getString(R.string.no_audio_recorded));
-        float[] pcm = new float[bytes.length / 2];
-        for (int i = 0; i < pcm.length; ++i) {
-            pcm[i] = (short) ((bytes[i * 2] & 255) | (bytes[i * 2 + 1] << 8)) / 32768.0f;
-        }
+        float[] pcm = decodePcm(bytes);
         try {
-            String text = OfflineEngine.transcribe(model, pcm, vocabulary).get();
+            String text;
+            if (stream != null) {
+                flushStreamBuffer();
+                long finishStarted = android.os.SystemClock.elapsedRealtime();
+                text = stream.finish().get();
+                Log.i(TAG, "Streaming completed: audioSeconds=" + (pcm.length / (double) SAMPLE_RATE)
+                        + " chunks=" + streamChunks + " postSendMs="
+                        + (android.os.SystemClock.elapsedRealtime() - finishStarted));
+            } else {
+                text = OfflineEngine.transcribe(model, pcm, vocabulary).get();
+            }
             if (closed) throw new Exception(context.getString(R.string.recording_cancelled));
             return text;
         } catch (ExecutionException error) {
+            if (stream != null) {
+                Log.w(TAG, "Streaming failed; retrying with batch transcription", error.getCause());
+                stream = null;
+                try {
+                    String text = OfflineEngine.transcribe(model, pcm, vocabulary).get();
+                    if (closed) throw new Exception(context.getString(R.string.recording_cancelled));
+                    return text;
+                } catch (ExecutionException fallback) {
+                    error = fallback;
+                }
+            }
             Log.e(TAG, "Native transcription failed", error.getCause());
             throw new Exception(context.getString(R.string.offline_transcription_failed), error.getCause());
         }
@@ -172,6 +222,7 @@ final class LocalTranscriber implements Transcriber {
     @Override public void close() {
         closed = true;
         stop();
+        if (stream != null) stream.close();
         synchronized (audio) { audio.reset(); }
     }
 }

@@ -95,6 +95,68 @@ Java_com_ross_speechtotext_OfflineEngine_run(JNIEnv *env, jclass, jlong handle, 
     return nullptr;
 }
 
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_ross_speechtotext_OfflineEngine_streamBegin(JNIEnv *env, jclass, jlong handle) {
+    try {
+        if (!handle) throw std::runtime_error("No model");
+        transcribe_capabilities capabilities;
+        transcribe_capabilities_init(&capabilities);
+        auto *model = reinterpret_cast<transcribe_model *>(handle);
+        check(transcribe_model_get_capabilities(model, &capabilities));
+        if (!capabilities.supports_streaming) throw std::runtime_error("Model does not support streaming");
+        transcribe_session_params params;
+        transcribe_session_params_init(&params);
+        params.n_threads = 4;
+        transcribe_session *session = nullptr;
+        check(transcribe_session_init(model, &params, &session));
+        try { check(transcribe_stream_begin(session, nullptr, nullptr)); }
+        catch (...) { transcribe_session_free(session); throw; }
+        return reinterpret_cast<jlong>(session);
+    } catch (const std::exception &error) { fail(env, error.what()); }
+      catch (...) { fail(env, "Could not start streaming transcription"); }
+    return 0;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_ross_speechtotext_OfflineEngine_streamFeed(JNIEnv *env, jclass, jlong handle, jfloatArray audio) {
+    try {
+        if (!handle || !audio) throw std::runtime_error("No stream or audio");
+        const int count = env->GetArrayLength(audio);
+        std::vector<float> pcm(count);
+        env->GetFloatArrayRegion(audio, 0, count, pcm.data());
+        if (env->ExceptionCheck()) return;
+        transcribe_stream_update update;
+        transcribe_stream_update_init(&update);
+        check(transcribe_stream_feed(reinterpret_cast<transcribe_session *>(handle), pcm.data(), count, &update));
+    } catch (const std::exception &error) { fail(env, error.what()); }
+      catch (...) { fail(env, "Streaming transcription failed"); }
+}
+
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_com_ross_speechtotext_OfflineEngine_streamFinish(JNIEnv *env, jclass, jlong handle) {
+    try {
+        if (!handle) throw std::runtime_error("No stream");
+        auto *session = reinterpret_cast<transcribe_session *>(handle);
+        transcribe_stream_update update;
+        transcribe_stream_update_init(&update);
+        check(transcribe_stream_finalize(session, &update));
+        transcribe_stream_text text;
+        transcribe_stream_text_init(&text);
+        check(transcribe_stream_get_text(session, &text));
+        const std::string result(text.full_text ? text.full_text : "");
+        auto bytes = env->NewByteArray(static_cast<jsize>(result.size()));
+        if (bytes) env->SetByteArrayRegion(bytes, 0, result.size(), reinterpret_cast<const jbyte *>(result.data()));
+        return bytes;
+    } catch (const std::exception &error) { fail(env, error.what()); }
+      catch (...) { fail(env, "Could not finish streaming transcription"); }
+    return nullptr;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_ross_speechtotext_OfflineEngine_streamDestroy(JNIEnv *, jclass, jlong handle) {
+    transcribe_session_free(reinterpret_cast<transcribe_session *>(handle));
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_ross_speechtotext_OfflineEngine_unload(JNIEnv *, jclass, jlong handle) {
     transcribe_model_free(reinterpret_cast<transcribe_model *>(handle));
