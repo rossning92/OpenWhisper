@@ -1,0 +1,76 @@
+plugins {
+    id 'com.android.application'
+}
+
+def signingEnv = ['RELEASE_STORE_FILE', 'RELEASE_STORE_PASSWORD', 'RELEASE_KEY_ALIAS', 'RELEASE_KEY_PASSWORD']
+def hasReleaseSigning = signingEnv.every { System.getenv(it) }
+
+android {
+    namespace 'com.ross.speechtotext'
+    compileSdk 34
+    ndkVersion '28.2.13676358'
+
+    defaultConfig {
+        applicationId "com.ross.speechtotext"
+        minSdk 26
+        targetSdk 34
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        versionCode Integer.parseInt(System.getenv('RELEASE_VERSION_CODE') ?: '1')
+        versionName System.getenv('RELEASE_VERSION_NAME') ?: '1.0'
+        ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_static'
+                targets 'offline-transcriber'
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.31.6'
+        }
+    }
+
+    lintOptions {
+        // workaround: disable lint on release builds because the lint tool crashes with Java 26
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(System.getenv('RELEASE_STORE_FILE'))
+                storePassword System.getenv('RELEASE_STORE_PASSWORD')
+                keyAlias System.getenv('RELEASE_KEY_ALIAS')
+                keyPassword System.getenv('RELEASE_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name == 'preReleaseBuild') {
+        doFirst {
+            if (!hasReleaseSigning) {
+                throw new GradleException('Release builds require: ' + signingEnv.join(', '))
+            }
+        }
+    }
+}
+
+dependencies {
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.preference:preference:1.2.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+}

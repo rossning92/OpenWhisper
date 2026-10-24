@@ -1,0 +1,66 @@
+package com.ross.speechtotext;
+
+import android.Manifest;
+import android.app.Activity;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.Settings;
+import android.widget.Toast;
+
+public class MainActivity extends Activity {
+    static final String KEY_FEATURE_ENABLED = "feature_enabled";
+    static final String KEY_FLOATING_BUTTON_SIZE = "floating_button_size";
+    static final String KEY_FLOATING_BUTTON_COLOR = "floating_button_color";
+    static final String FLOATING_BUTTON_SIZE_NORMAL = "normal";
+    static final String FLOATING_BUTTON_SIZE_SMALL = "small";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        if (!Settings.canDrawOverlays(this) && !TypeAccessibilityService.isEnabled(this)) {
+            startActivityForResult(
+                    new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())), 0);
+        } else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 1);
+        } else {
+            openSettings();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 0) {
+            if (Settings.canDrawOverlays(this)) {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 1);
+                } else {
+                    openSettings();
+                }
+            } else {
+                Toast.makeText(this, R.string.overlay_permission_denied, Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 1) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                openSettings();
+            } else {
+                Toast.makeText(this, R.string.microphone_permission_denied, Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        }
+    }
+
+    private void openSettings() {
+        startActivity(new Intent(this, SettingsActivity.class));
+        finish();
+    }
+}
