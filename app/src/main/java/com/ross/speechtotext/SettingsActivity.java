@@ -103,6 +103,16 @@ public class SettingsActivity extends AppCompatActivity {
                     return true;
                 });
             }
+            Preference buttonColorPref = findPreference(MainActivity.KEY_FLOATING_BUTTON_COLOR);
+            if (buttonColorPref != null) {
+                buttonColorPref.setOnPreferenceChangeListener((pref, newValue) -> {
+                    requireActivity().getWindow().getDecorView().post(() -> {
+                        FloatingService service = FloatingService.getInstance();
+                        if (service != null) service.updateControlColors();
+                    });
+                    return true;
+                });
+            }
             SwitchPreferenceCompat termuxButtonPref = findPreference(
                     MainActivity.KEY_SHOW_TERMUX_BUTTON);
             if (termuxButtonPref != null) {
