@@ -6,6 +6,7 @@
     <string name="pref_category_service">Service</string>
     <string name="pref_category_transcription">Transcription</string>
     <string name="pref_category_output">Output</string>
+    <string name="pref_category_termux">Termux</string>
     <string name="pref_category_floating_button">Floating button</string>
     <string name="pref_enable_title">Enable Open Whisper</string>
     <string name="pref_enable_summary">Show the floating dictation button and run at startup</string>
@@ -19,6 +20,8 @@
     <string name="pref_no_input_title">When no input field is focused</string>
     <string name="pref_termux_path_title">Termux script path</string>
     <string name="pref_termux_path_message">Absolute path or ~/ path, e.g. ~/bin/handle_transcription.sh. Runs with Bash from the Termux home directory; transcription is the first argument.</string>
+    <string name="pref_termux_button_title">Enable Termux send button</string>
+    <string name="pref_termux_button_summary">While recording, show a button that sends the transcription directly to the Termux script</string>
     <string name="pref_dictionary_title">Custom dictionary</string>
     <string name="pref_dictionary_message">One word or phrase per line, most important first. Qwen3-ASR uses these as spelling hints. Clear the list to turn it off.</string>
     <string name="pref_dictionary_summary">Names and technical terms for Qwen3-ASR only; not used by Parakeet</string>
@@ -38,7 +41,7 @@
     <string name="offline_transcription_failed">Offline transcription failed</string>
     <string name="overlay_permission_denied">Overlay permission denied</string><string name="microphone_permission_denied">Microphone permission denied</string><string name="termux_permission_denied">Termux command permission denied</string>
     <string name="service_running">Service is running</string><string name="floating_service_channel">Floating Service Channel</string><string name="offline_download_channel">Offline model download</string>
-    <string name="start_dictation">Start dictation</string><string name="cancel_dictation">Cancel dictation</string><string name="stop_and_transcribe">Stop and transcribe</string><string name="transcribing">Transcribing</string><string name="transcribing_on_device">Transcribing on device</string>
+    <string name="start_dictation">Start dictation</string><string name="cancel_dictation">Cancel dictation</string><string name="stop_and_transcribe">Stop and transcribe</string><string name="stop_and_send_to_termux">Stop and send to Termux</string><string name="transcribing">Transcribing</string><string name="transcribing_on_device">Transcribing on device</string>
     <string name="transcription_failed">Transcription failed</string><string name="transcription_did_not_start">Transcription did not start</string><string name="invalid_termux_path">Set a valid Termux script path in Settings (absolute path or ~/ path).</string><string name="termux_start_failed">Unable to start Termux command</string><string name="termux_run_failed">Unable to run Termux command: %1$s</string><string name="recording_failed">Recording failed: %1$s</string><string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="default_color">Default color</string><string name="color_option">Color option %1$d</string>
     <string name="download_status_starting">Downloading %1$s...</string><string name="download_status_progress">Downloading %1$s: %2$d%%</string><string name="download_title">Downloading %1$s</string><string name="download_ready">Ready: %1$s</string>

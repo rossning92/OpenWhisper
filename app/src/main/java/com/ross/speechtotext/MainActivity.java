@@ -13,6 +13,7 @@ public class MainActivity extends Activity {
     static final String KEY_FEATURE_ENABLED = "feature_enabled";
     static final String KEY_FLOATING_BUTTON_SIZE = "floating_button_size";
     static final String KEY_FLOATING_BUTTON_COLOR = "floating_button_color";
+    static final String KEY_SHOW_TERMUX_BUTTON = "show_termux_button";
     static final String FLOATING_BUTTON_SIZE_NORMAL = "normal";
     static final String FLOATING_BUTTON_SIZE_SMALL = "small";
 

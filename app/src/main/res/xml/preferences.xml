@@ -45,6 +45,14 @@
             android:entryValues="@array/no_input_action_values"
             android:defaultValue="clipboard"
             android:summary="%s" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_category_termux">
+        <SwitchPreferenceCompat
+            android:key="show_termux_button"
+            android:title="@string/pref_termux_button_title"
+            android:summary="@string/pref_termux_button_summary"
+            android:defaultValue="false" />
 
         <EditTextPreference
             android:key="termux_script_path"
