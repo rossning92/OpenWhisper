@@ -1,10 +1,10 @@
 """Run the UI Automator documentation flow and collect its screenshots."""
 
 import argparse
+from contextlib import contextmanager
 import os
 from pathlib import Path
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -12,6 +12,13 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = "com.ross.speechtotext"
+ACCESSIBILITY_SERVICE = PACKAGE + "/" + PACKAGE + ".TypeAccessibilityService"
+ACCESSIBILITY_ALIASES = {ACCESSIBILITY_SERVICE, PACKAGE + "/.TypeAccessibilityService"}
+CAPTURE_SETTINGS = [
+    ("system", "accelerometer_rotation", "0"),
+    ("system", "user_rotation", "0"),
+    ("secure", "accessibility_enabled", "1"),
+]
 
 
 def run(command, **kwargs):
@@ -26,21 +33,46 @@ def save_png(path, data):
     print(path)
 
 
-def reconnect_accessibility(adb):
-    # Instrumentation kills the app process. Rebind its already-enabled service.
-    setting = ["shell", "settings", "get", "secure", "enabled_accessibility_services"]
-    original = run(adb + setting, capture_output=True, text=True).stdout.strip()
-    services = original.split(":")
-    component = PACKAGE + "/" + PACKAGE + ".TypeAccessibilityService"
-    if component not in services:
-        return
-    services.remove(component)
-    put = adb + ["shell", "settings", "put", "secure", "enabled_accessibility_services"]
+def get_setting(adb, namespace, name):
+    return run(adb + ["shell", "settings", "get", namespace, name],
+               capture_output=True, text=True).stdout.strip()
+
+
+def set_setting(adb, namespace, name, value):
+    action = "delete" if value in ("", "null") else "put"
+    command = adb + ["shell", "settings", action, namespace, name]
+    run(command + ([] if action == "delete" else [value]), capture_output=True)
+
+
+@contextmanager
+def configured_device(adb):
+    original = {(namespace, name): get_setting(adb, namespace, name)
+                for namespace, name, _ in CAPTURE_SETTINGS}
+    original_services = get_setting(adb, "secure", "enabled_accessibility_services")
+    locale_output = run(adb + ["shell", "cmd", "locale", "get-app-locales", PACKAGE],
+                        capture_output=True, text=True).stdout.strip()
+    original_locales = locale_output.rsplit("[", 1)[-1].removesuffix("]")
+    services = [] if original_services in ("", "null") else original_services.split(":")
+    if ACCESSIBILITY_SERVICE not in services:
+        services.append(ACCESSIBILITY_SERVICE)
     try:
-        run(put + [shlex.quote(":".join(services))], capture_output=True)
-        time.sleep(0.3)
+        run(adb + ["shell", "cmd", "locale", "set-app-locales", PACKAGE,
+                   "--user", "0", "--locales", "en-US"])
+        for namespace, name, value in CAPTURE_SETTINGS:
+            set_setting(adb, namespace, name, value)
+        set_setting(adb, "secure", "enabled_accessibility_services", ":".join(services))
+        yield
     finally:
-        run(put + [shlex.quote(original)], capture_output=True)
+        run(adb + ["shell", "cmd", "locale", "set-app-locales", PACKAGE,
+                   "--user", "0", "--locales", original_locales])
+        for (namespace, name), value in original.items():
+            set_setting(adb, namespace, name, value)
+        # Toggling reconnects a service killed by instrumentation.
+        if any(service in ACCESSIBILITY_ALIASES for service in original_services.split(":")):
+            remaining = [service for service in services if service not in ACCESSIBILITY_ALIASES]
+            set_setting(adb, "secure", "enabled_accessibility_services", ":".join(remaining))
+            time.sleep(0.3)
+        set_setting(adb, "secure", "enabled_accessibility_services", original_services)
 
 
 def main():
@@ -78,35 +110,34 @@ def main():
                      "-e", "demo", str(args.demo).lower(),
                      "-e", "video", str(args.video).lower(),
                      PACKAGE + ".test/androidx.test.runner.AndroidJUnitRunner"]
-    try:
-        for apk in apks:
-            run(adb + ["install", "-r", str(apk)])
-        result = run(command, capture_output=True, text=True)
-        print(result.stdout)
-        # am instrument can return zero even when the test fails.
-        if "OK (1 test)" not in result.stdout:
-            raise RuntimeError("UI Automator capture failed; see instrumentation output above")
-        for name in ["01-ready", "02-models"]:
-            data = run(adb + ["exec-out", "run-as", PACKAGE, "cat",
-                              f"files/screenshots/{name}.png"], capture_output=True).stdout
-            save_png(args.output / f"{name}.png", data)
-        if args.video:
-            raw = args.output / "demo-silent.mp4"
-            run(adb + ["pull", "/data/local/tmp/speechtotext-demo.mp4", str(raw)])
-            offset = float(run(adb + ["exec-out", "run-as", PACKAGE, "cat",
-                                      "files/screenshots/voice-offset.txt"], capture_output=True, text=True).stdout)
-            video = args.output / "demo.mp4"
-            run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(raw),
-                 "-itsoffset", str(offset), "-i", str(ROOT / "app/src/androidTest/assets/demo-message.wav"),
-                 "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
-                 "-af", "apad", "-shortest", "-movflags", "+faststart", str(video)])
-            raw.unlink()
-            print(video)
-    finally:
-        # Instrumentation ends the app process; restart its normal UI and overlay.
-        run(adb + ["shell", "am", "start", "-W", "-n", PACKAGE + "/.MainActivity"],
-            capture_output=True)
-        reconnect_accessibility(adb)
+    for apk in apks:
+        run(adb + ["install", "-r", str(apk)])
+    with configured_device(adb):
+        try:
+            result = run(command, capture_output=True, text=True)
+            print(result.stdout)
+            # am instrument can return zero even when the test fails.
+            if "OK (1 test)" not in result.stdout:
+                raise RuntimeError("UI Automator capture failed; see instrumentation output above")
+            for name in ["01-ready", "02-models"]:
+                data = run(adb + ["exec-out", "run-as", PACKAGE, "cat",
+                                  f"files/screenshots/{name}.png"], capture_output=True).stdout
+                save_png(args.output / f"{name}.png", data)
+            if args.video:
+                raw = args.output / "demo-silent.mp4"
+                run(adb + ["pull", "/data/local/tmp/speechtotext-demo.mp4", str(raw)])
+                offset = float(run(adb + ["exec-out", "run-as", PACKAGE, "cat",
+                                          "files/screenshots/voice-offset.txt"], capture_output=True, text=True).stdout)
+                video = args.output / "demo.mp4"
+                run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(raw),
+                     "-itsoffset", str(offset), "-i", str(ROOT / "app/src/androidTest/assets/demo-message.wav"),
+                     "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac",
+                     "-af", "apad", "-shortest", "-movflags", "+faststart", str(video)])
+                raw.unlink()
+                print(video)
+        finally:
+            run(adb + ["shell", "am", "start", "-W", "-n", PACKAGE + "/.MainActivity"],
+                capture_output=True)
 
 
 if __name__ == "__main__":

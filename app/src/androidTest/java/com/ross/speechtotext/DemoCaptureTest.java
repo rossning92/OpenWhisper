@@ -70,19 +70,21 @@ public class DemoCaptureTest {
         capture("01-ready");
         require(By.text("Offline model")).click();
         try {
-            require(By.text("Done"));
+            require(By.text("Qwen3-ASR 0.6B Q8 - Multilingual"));
             capture("02-models");
         } finally {
-            require(By.text("Done")).click();
+            device.pressBack();
         }
         if ("true".equals(arguments.getString("demo"))) captureMessageDemo(context);
     }
 
     private void captureMessageDemo(Context context) throws Exception {
         reconnectAccessibility(context);
-        assertFalse("Turn off Auto-finish after speech for the demo",
-                androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
-                        .getBoolean("auto_finish_speech", false));
+        android.content.SharedPreferences preferences = androidx.preference.PreferenceManager
+                .getDefaultSharedPreferences(context);
+        boolean hadAutoFinish = preferences.contains("auto_finish_speech");
+        boolean autoFinish = preferences.getBoolean("auto_finish_speech", false);
+        preferences.edit().putBoolean("auto_finish_speech", false).commit();
         context.startActivity(new Intent(context, DemoChatActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         require(By.desc("Message Alex")).click();
         require(By.desc("Start dictation")).drag(new android.graphics.Point(
@@ -145,6 +147,10 @@ public class DemoCaptureTest {
                     require(By.desc("Message Alex")).wait(Until.textMatches("(|Message Alex)"), TIMEOUT));
             if (videoPid != null) SystemClock.sleep(2_000); // Let the viewer read the result.
         } finally {
+            android.content.SharedPreferences.Editor editor = preferences.edit();
+            if (hadAutoFinish) editor.putBoolean("auto_finish_speech", autoFinish);
+            else editor.remove("auto_finish_speech");
+            editor.commit();
             player.release();
             audio.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0);
             if (recording) require(By.desc("Cancel dictation")).click();
