@@ -130,13 +130,23 @@ public class FloatingService extends Service {
     private void updatePositionFromPrefs() {
         SharedPreferences prefs = getSharedPreferences("FloatingButtonPrefs", MODE_PRIVATE);
         String suffix = getPrefSuffix();
-        params.x = prefs.getInt("x" + suffix, prefs.getInt("x", 100));
-        params.y = prefs.getInt("y" + suffix, prefs.getInt("y", 100));
+        boolean hasOrientationPosition = prefs.contains("x" + suffix)
+                && prefs.contains("y" + suffix);
+        String xKey = hasOrientationPosition ? "x" + suffix : "x";
+        String yKey = hasOrientationPosition ? "y" + suffix : "y";
+        boolean hasSavedPosition = prefs.contains(xKey) && prefs.contains(yKey);
+        params.x = prefs.getInt(xKey, usableWidth());
+        params.y = prefs.getInt(yKey, defaultCenterY());
         windowManager.updateViewLayout(container, params);
-        // Re-dock to the nearest edge once laid out. getWidth() and the cutout
-        // insets are only valid post-layout, and the saved x must be re-snapped
-        // to this orientation's usable width (insets differ per orientation).
-        container.post(this::savePositionToEdge);
+        // Re-dock once the container dimensions are available. The saved x must
+        // be re-snapped to this orientation's usable width.
+        container.post(() -> {
+            if (!hasSavedPosition) {
+                params.y = Math.max(0, defaultCenterY() - container.getHeight() / 2);
+                windowManager.updateViewLayout(container, params);
+            }
+            savePositionToEdge();
+        });
     }
 
     // Width available to the container, excluding system bars and display cutout.
@@ -148,6 +158,16 @@ public class FloatingService extends Service {
         Insets insets = metrics.getWindowInsets().getInsets(
                 WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
         return metrics.getBounds().width() - insets.left - insets.right;
+    }
+
+    private int defaultCenterY() {
+        WindowMetrics metrics = windowManager.getCurrentWindowMetrics();
+        Insets insets = metrics.getWindowInsets().getInsets(
+                WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+        int usableHeight = metrics.getBounds().height() - insets.top - insets.bottom;
+        boolean landscape = getResources().getConfiguration().orientation
+                == Configuration.ORIENTATION_LANDSCAPE;
+        return Math.round(usableHeight * (landscape ? 0.5f : 0.4f));
     }
 
     @Override
