@@ -3,6 +3,10 @@
     <string name="app_name">语音转文字</string>
     <string name="accessibility_description">允许语音转文字将转写内容输入当前文本框，并以无障碍悬浮窗显示听写控件。控件显示时，浏览器权限提示等受保护界面仍可正常操作。</string>
     <string name="ime_label">语音转文字（静音）</string>
+    <string name="pref_category_service">服务</string>
+    <string name="pref_category_transcription">转写</string>
+    <string name="pref_category_output">输出</string>
+    <string name="pref_category_floating_button">悬浮按钮</string>
     <string name="pref_enable_title">启用语音转文字</string><string name="pref_enable_summary">显示悬浮听写按钮并在开机时运行</string><string name="pref_offline_model">离线模型</string>
     <string name="pref_auto_finish_title">讲话结束后自动完成</string><string name="pref_auto_finish_summary">讲话后静音 1.5 秒即自动发送，从下次录音开始生效。</string>
     <string name="pref_no_input_title">没有文本框获得焦点时</string><string name="pref_termux_path_title">Termux 脚本路径</string><string name="pref_termux_path_message">绝对路径或 ~/ 路径，例如 ~/bin/handle_transcription.sh。脚本通过 Bash 在 Termux 主目录中运行，转写内容作为第一个参数。</string>

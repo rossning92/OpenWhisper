@@ -3,6 +3,10 @@
     <string name="app_name">Speech To Text</string>
     <string name="accessibility_description">Allows Speech To Text to type transcribed text into focused fields and show its floating dictation control as an accessibility overlay. This keeps protected screens, such as browser permission prompts, usable while the control is visible.</string>
     <string name="ime_label">Speech To Text (silent)</string>
+    <string name="pref_category_service">Service</string>
+    <string name="pref_category_transcription">Transcription</string>
+    <string name="pref_category_output">Output</string>
+    <string name="pref_category_floating_button">Floating button</string>
     <string name="pref_enable_title">Enable Speech To Text</string>
     <string name="pref_enable_summary">Show the floating dictation button and run at startup</string>
     <string name="pref_offline_model">Offline model</string>
