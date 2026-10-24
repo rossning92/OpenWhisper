@@ -65,7 +65,7 @@ public class DemoCaptureTest {
         output = new File(context.getFilesDir(), "screenshots");
         assertTrue(output.isDirectory() || output.mkdirs());
         context.startActivity(new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        require(By.text("Enable Speech To Text"));
+        require(By.text("Enable Open Whisper"));
         require(By.desc("Start dictation"));
         capture("01-ready");
         require(By.text("Offline model")).click();

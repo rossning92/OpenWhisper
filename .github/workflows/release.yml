@@ -58,16 +58,16 @@ jobs:
           ./gradlew --no-daemon assembleRelease
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/SpeechToText-${RELEASE_VERSION_NAME}-arm64.apk"
+          cp app/build/outputs/apk/release/app-release.apk "dist/OpenWhisper-${RELEASE_VERSION_NAME}-arm64.apk"
           cd dist
           sha256sum *.apk > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: SpeechToText-${{ env.RELEASE_VERSION_NAME }}
+          name: OpenWhisper-${{ env.RELEASE_VERSION_NAME }}
           path: dist/*
           if-no-files-found: error
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" dist/* --verify-tag --title "SpeechToText $TAG" --generate-notes
+        run: gh release create "$TAG" dist/* --verify-tag --title "Open Whisper $TAG" --generate-notes

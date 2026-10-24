@@ -1,4 +1,4 @@
-# Speech To Text
+# Open Whisper
 
 https://github.com/user-attachments/assets/49acff04-5619-49ba-93c3-5d43468ca49a
 
