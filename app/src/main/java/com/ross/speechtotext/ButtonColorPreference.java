@@ -3,6 +3,7 @@ package com.ross.speechtotext;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.util.AttributeSet;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceViewHolder;
@@ -25,6 +26,7 @@ public final class ButtonColorPreference extends Preference {
     @Override public void onBindViewHolder(PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
         LinearLayout row = (LinearLayout) holder.findViewById(R.id.color_choices);
+        HorizontalScrollView scroll = (HorizontalScrollView) holder.findViewById(R.id.color_scroll);
         row.removeAllViews();
         float density = getContext().getResources().getDisplayMetrics().density;
         int size = Math.round(48 * density);
@@ -65,6 +67,9 @@ public final class ButtonColorPreference extends Preference {
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(size, size);
             if (i > 0) params.setMarginStart(gap);
             row.addView(swatch, params);
+            if (checked) {
+                scroll.post(() -> scroll.scrollTo(Math.max(0, swatch.getLeft() - gap), 0));
+            }
         }
     }
 }

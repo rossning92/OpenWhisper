@@ -13,11 +13,20 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="56dp"
         android:textAppearance="?android:attr/textAppearanceListItem" />
-    <LinearLayout
-        android:id="@+id/color_choices"
+    <HorizontalScrollView
+        android:id="@+id/color_scroll"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="56dp"
         android:layout_marginTop="12dp"
-        android:orientation="horizontal" />
+        android:fadingEdge="horizontal"
+        android:fadingEdgeLength="24dp"
+        android:requiresFadingEdge="horizontal"
+        android:scrollbars="none">
+        <LinearLayout
+            android:id="@+id/color_choices"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
 </LinearLayout>
