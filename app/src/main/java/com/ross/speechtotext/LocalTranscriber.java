@@ -20,7 +20,7 @@ final class LocalTranscriber implements Transcriber {
     private final OfflineModel modelInfo;
     private final File model;
     private final Listener listener;
-    private final String vocabulary;
+    private final CustomDictionary dictionary;
     private final boolean autoFinish;
     private final Context context;
     private final ByteArrayOutputStream audio = new ByteArrayOutputStream();
@@ -40,9 +40,8 @@ final class LocalTranscriber implements Transcriber {
         this.listener = listener;
         this.autoFinish = PreferenceManager.getDefaultSharedPreferences(context)
                 .getBoolean("auto_finish_speech", false);
-        this.vocabulary = modelInfo == OfflineModel.QWEN
-                ? PreferenceManager.getDefaultSharedPreferences(context)
-                        .getString("custom_dictionary", "") : "";
+        this.dictionary = new CustomDictionary(PreferenceManager.getDefaultSharedPreferences(context)
+                .getString("custom_dictionary", ""), modelInfo == OfflineModel.QWEN);
     }
 
     @Override public void start() throws Exception {
@@ -194,18 +193,18 @@ final class LocalTranscriber implements Transcriber {
                         + " chunks=" + streamChunks + " postSendMs="
                         + (android.os.SystemClock.elapsedRealtime() - finishStarted));
             } else {
-                text = OfflineEngine.transcribe(model, pcm, vocabulary).get();
+                text = OfflineEngine.transcribe(model, pcm, dictionary.vocabulary()).get();
             }
             if (closed) throw new Exception(context.getString(R.string.recording_cancelled));
-            return text;
+            return dictionary.correct(text);
         } catch (ExecutionException error) {
             if (stream != null) {
                 Log.w(TAG, "Streaming failed; retrying with batch transcription", error.getCause());
                 stream = null;
                 try {
-                    String text = OfflineEngine.transcribe(model, pcm, vocabulary).get();
+                    String text = OfflineEngine.transcribe(model, pcm, dictionary.vocabulary()).get();
                     if (closed) throw new Exception(context.getString(R.string.recording_cancelled));
-                    return text;
+                    return dictionary.correct(text);
                 } catch (ExecutionException fallback) {
                     error = fallback;
                 }

@@ -23,8 +23,8 @@
     <string name="pref_termux_button_title">Enable Termux send button</string>
     <string name="pref_termux_button_summary">While recording, show a button that sends the transcription directly to the Termux script</string>
     <string name="pref_dictionary_title">Custom dictionary</string>
-    <string name="pref_dictionary_message">One word or phrase per line, most important first. Qwen3-ASR uses these as spelling hints. Clear the list to turn it off.</string>
-    <string name="pref_dictionary_summary">Names and technical terms for Qwen3-ASR only; not used by Parakeet</string>
+    <string name="pref_dictionary_message">One word or phrase per line, most important first. Qwen3-ASR uses spelling hints; Parakeet corrects similar English words and phrases after transcription. Clear the list to turn it off.</string>
+    <string name="pref_dictionary_summary">Spelling hints for Qwen3-ASR; similar-word corrections for Parakeet</string>
     <string name="pref_button_size_title">Floating button size</string>
     <string name="pref_button_color_title">Floating button color</string>
     <string name="pref_accessibility_title">Accessibility Service</string>
