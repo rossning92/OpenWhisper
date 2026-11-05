@@ -92,7 +92,7 @@ public class FloatingService extends Service {
     private LinearLayout termuxRow;
     private boolean onLeft = true;
     private int waveW, waveH;
-    private boolean useSmallControls;
+    private String controlSize;
     private boolean isDictating = false;
     private boolean isTranscribing = false;
     private ObjectAnimator spinAnimator;
@@ -208,7 +208,7 @@ public class FloatingService extends Service {
         themedContext = com.google.android.material.color.DynamicColors.wrapContextIfAvailable(
                 new ContextThemeWrapper(this, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar));
 
-        useSmallControls = readUseSmallControls();
+        controlSize = readControlSize();
         updateWaveformDimensions();
 
         floatingView = createFab(R.drawable.ic_graphic_eq);
@@ -327,9 +327,10 @@ public class FloatingService extends Service {
         }
     }
 
-    private LinearLayout.LayoutParams fabLayoutParams() {
-        return new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+    private LinearLayout.LayoutParams fabLayoutParams(FloatingActionButton button) {
+        // Material adds touch-target padding during measurement; exclude it here.
+        // Exact content dimensions also prevent the last FAB from being squeezed.
+        return new LinearLayout.LayoutParams(button.getCustomSize(), button.getCustomSize());
     }
 
     // The FAB hugs the docked edge and the action buttons grow inward, so their
@@ -338,29 +339,31 @@ public class FloatingService extends Service {
         container.removeAllViews();
         termuxRow.removeAllViews();
         for (FloatingActionButton button : termuxButtons) {
-            termuxRow.addView(button, fabLayoutParams());
+            termuxRow.addView(button, fabLayoutParams(button));
         }
         int unspecified = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
         termuxRow.measure(unspecified, unspecified);
         floatingView.measure(unspecified, unspecified);
         int buttonWidth = floatingView.getMeasuredWidth();
         int gap = container.getDividerDrawable().getIntrinsicWidth();
+        int waveformWidth = Math.min(waveW, Math.max(0, usableWidth()
+                - (termuxButtons.isEmpty() ? 2 : 3) * buttonWidth - 3 * gap));
         int available = Math.max(buttonWidth, usableWidth()
-                - waveW - 2 * buttonWidth - 3 * gap);
+                - waveformWidth - 2 * buttonWidth - 3 * gap);
         termuxScroll.setLayoutParams(new LinearLayout.LayoutParams(
                 Math.min(available, termuxRow.getMeasuredWidth()),
                 LinearLayout.LayoutParams.WRAP_CONTENT));
         termuxScroll.setVisibility(isDictating && !termuxButtons.isEmpty() ? View.VISIBLE : View.GONE);
         if (onLeft) {
-            container.addView(floatingView, fabLayoutParams());
+            container.addView(floatingView, fabLayoutParams(floatingView));
             container.addView(termuxScroll);
-            container.addView(waveformView, new LinearLayout.LayoutParams(waveW, waveH));
-            container.addView(cancelView, fabLayoutParams());
+            container.addView(waveformView, new LinearLayout.LayoutParams(waveformWidth, waveH));
+            container.addView(cancelView, fabLayoutParams(cancelView));
         } else {
-            container.addView(cancelView, fabLayoutParams());
-            container.addView(waveformView, new LinearLayout.LayoutParams(waveW, waveH));
+            container.addView(cancelView, fabLayoutParams(cancelView));
+            container.addView(waveformView, new LinearLayout.LayoutParams(waveformWidth, waveH));
             container.addView(termuxScroll);
-            container.addView(floatingView, fabLayoutParams());
+            container.addView(floatingView, fabLayoutParams(floatingView));
         }
     }
 
@@ -393,21 +396,22 @@ public class FloatingService extends Service {
         for (FloatingActionButton button : termuxButtons) applyFabColors(button, false);
     }
 
-    private boolean readUseSmallControls() {
-        String buttonSize = PreferenceManager.getDefaultSharedPreferences(this).getString(
+    private String readControlSize() {
+        return PreferenceManager.getDefaultSharedPreferences(this).getString(
                 MainActivity.KEY_FLOATING_BUTTON_SIZE,
                 MainActivity.FLOATING_BUTTON_SIZE_NORMAL);
-        return MainActivity.FLOATING_BUTTON_SIZE_SMALL.equals(buttonSize);
     }
 
     private float getControlScale() {
-        return useSmallControls ? 1f : 1.2f;
+        if (MainActivity.FLOATING_BUTTON_SIZE_LARGE.equals(controlSize)) return 1.4f;
+        return MainActivity.FLOATING_BUTTON_SIZE_SMALL.equals(controlSize) ? 1f : 1.2f;
     }
 
     private void applyFabSize(FloatingActionButton fab) {
         float density = getResources().getDisplayMetrics().density;
-        fab.setCustomSize(Math.round((useSmallControls ? 40 : 48) * density));
-        fab.setMaxImageSize(Math.round((useSmallControls ? 22 : 24) * density));
+        float scale = getControlScale();
+        fab.setCustomSize(Math.round(40 * scale * density));
+        fab.setMaxImageSize(Math.round(20 * scale * density));
     }
 
     private void updateWaveformDimensions() {
@@ -418,7 +422,7 @@ public class FloatingService extends Service {
     }
 
     void updateControlSize() {
-        useSmallControls = readUseSmallControls();
+        controlSize = readControlSize();
         applyFabSize(floatingView);
         applyFabSize(cancelView);
         for (FloatingActionButton button : termuxButtons) applyFabSize(button);

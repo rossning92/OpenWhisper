@@ -15,6 +15,8 @@ public class MainActivity extends Activity {
     static final String KEY_FLOATING_BUTTON_COLOR = "floating_button_color";
     static final String FLOATING_BUTTON_SIZE_NORMAL = "normal";
     static final String FLOATING_BUTTON_SIZE_SMALL = "small";
+    // Keep the stored value so existing Medium selections become Large.
+    static final String FLOATING_BUTTON_SIZE_LARGE = "medium";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

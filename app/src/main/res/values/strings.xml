@@ -29,8 +29,8 @@
     <string name="pref_accessibility_summary">Types dictated text into focused fields. When enabled, the floating control uses a trusted accessibility overlay so protected screens, such as browser permission prompts, remain usable. When disabled, the control uses Draw over other apps instead.</string>
     <string-array name="no_input_action_entries"><item>Copy to clipboard</item><item>Run Termux command</item></string-array>
     <string-array name="no_input_action_values" translatable="false"><item>clipboard</item><item>termux</item></string-array>
-    <string-array name="floating_button_size_entries"><item>Normal</item><item>Small</item></string-array>
-    <string-array name="floating_button_size_values" translatable="false"><item>normal</item><item>small</item></string-array>
+    <string-array name="floating_button_size_entries"><item>Normal</item><item>Small</item><item>Large</item></string-array>
+    <string-array name="floating_button_size_values" translatable="false"><item>normal</item><item>small</item><item>medium</item></string-array>
     <string-array name="floating_button_color_entries"><item>System default</item><item>Red</item><item>Pink</item><item>Purple</item><item>Blue</item><item>Cyan</item><item>Teal</item><item>Green</item><item>Orange</item><item>Gray</item></string-array>
     <string name="language_english">English</string><string name="language_multilingual">Multilingual</string>
     <string name="done">Done</string><string name="cancel">Cancel</string><string name="close">Close</string><string name="retry">Retry</string><string name="select">Select</string>
