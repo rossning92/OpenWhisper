@@ -48,6 +48,9 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.color.MaterialColors;
 import com.google.android.material.shape.RelativeCornerSize;
 
+import java.util.List;
+import java.util.ArrayList;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -82,8 +85,11 @@ public class FloatingService extends Service {
 
     private FloatingActionButton floatingView;
     private FloatingActionButton cancelView;
-    private FloatingActionButton termuxButton;
+    private final List<FloatingActionButton> termuxButtons = new ArrayList<>();
+    private View.OnTouchListener dragTouchListener;
     private WaveformView waveformView;
+    private android.widget.HorizontalScrollView termuxScroll;
+    private LinearLayout termuxRow;
     private boolean onLeft = true;
     private int waveW, waveH;
     private boolean useSmallControls;
@@ -174,7 +180,9 @@ public class FloatingService extends Service {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        applyChildOrder();
         updatePositionFromPrefs();
+        repinToEdge();
     }
 
     @Override
@@ -185,6 +193,7 @@ public class FloatingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        windowManager = getSystemService(WindowManager.class);
         instance = this;
         createNotificationChannel();
 
@@ -215,18 +224,15 @@ public class FloatingService extends Service {
             cancelDictation();
         });
 
-        termuxButton = createFab(R.drawable.ic_terminal);
-        termuxButton.setContentDescription(getString(R.string.stop_and_send_to_termux));
-        termuxButton.setVisibility(View.GONE);
-        termuxButton.setOnClickListener(v -> {
-            if (!isDictating || isTranscribing) return;
-            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-            finishDictation(true);
-        });
-
         waveformView = new WaveformView(themedContext);
         waveformView.setScale(getControlScale());
         waveformView.setVisibility(View.GONE);
+
+        termuxRow = new LinearLayout(themedContext);
+        termuxRow.setOrientation(LinearLayout.HORIZONTAL);
+        termuxScroll = new android.widget.HorizontalScrollView(themedContext);
+        termuxScroll.setHorizontalScrollBarEnabled(true);
+        termuxScroll.addView(termuxRow);
 
         container = new LinearLayout(themedContext);
         container.setOrientation(LinearLayout.HORIZONTAL);
@@ -236,8 +242,10 @@ public class FloatingService extends Service {
         controlGap.setSize(Math.round(4 * getResources().getDisplayMetrics().density), 1);
         container.setDividerDrawable(controlGap);
         container.setShowDividers(LinearLayout.SHOW_DIVIDER_MIDDLE);
+        termuxRow.setDividerDrawable(controlGap);
+        termuxRow.setShowDividers(LinearLayout.SHOW_DIVIDER_MIDDLE);
 
-        View.OnTouchListener dragTouchListener = new View.OnTouchListener() {
+        dragTouchListener = new View.OnTouchListener() {
             private int initialX, initialY;
             private float initialTouchX, initialTouchY;
             private static final int CLICK_THRESHOLD = 10;
@@ -277,7 +285,7 @@ public class FloatingService extends Service {
         floatingView.setOnTouchListener(dragTouchListener);
         waveformView.setOnTouchListener(dragTouchListener);
         cancelView.setOnTouchListener(dragTouchListener);
-        termuxButton.setOnTouchListener(dragTouchListener);
+        rebuildTermuxButtons();
 
         applyChildOrder();
 
@@ -328,15 +336,30 @@ public class FloatingService extends Service {
     // order reverses with the edge.
     private void applyChildOrder() {
         container.removeAllViews();
+        termuxRow.removeAllViews();
+        for (FloatingActionButton button : termuxButtons) {
+            termuxRow.addView(button, fabLayoutParams());
+        }
+        int unspecified = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+        termuxRow.measure(unspecified, unspecified);
+        floatingView.measure(unspecified, unspecified);
+        int buttonWidth = floatingView.getMeasuredWidth();
+        int gap = container.getDividerDrawable().getIntrinsicWidth();
+        int available = Math.max(buttonWidth, usableWidth()
+                - waveW - 2 * buttonWidth - 3 * gap);
+        termuxScroll.setLayoutParams(new LinearLayout.LayoutParams(
+                Math.min(available, termuxRow.getMeasuredWidth()),
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        termuxScroll.setVisibility(isDictating && showTermuxButton() ? View.VISIBLE : View.GONE);
         if (onLeft) {
             container.addView(floatingView, fabLayoutParams());
-            container.addView(termuxButton, fabLayoutParams());
+            container.addView(termuxScroll);
             container.addView(waveformView, new LinearLayout.LayoutParams(waveW, waveH));
             container.addView(cancelView, fabLayoutParams());
         } else {
             container.addView(cancelView, fabLayoutParams());
             container.addView(waveformView, new LinearLayout.LayoutParams(waveW, waveH));
-            container.addView(termuxButton, fabLayoutParams());
+            container.addView(termuxScroll);
             container.addView(floatingView, fabLayoutParams());
         }
     }
@@ -367,7 +390,7 @@ public class FloatingService extends Service {
     public void updateControlColors() {
         applyFabColors(floatingView, isDictating);
         applyFabColors(cancelView, false);
-        applyFabColors(termuxButton, false);
+        for (FloatingActionButton button : termuxButtons) applyFabColors(button, false);
     }
 
     private boolean readUseSmallControls() {
@@ -398,7 +421,7 @@ public class FloatingService extends Service {
         useSmallControls = readUseSmallControls();
         applyFabSize(floatingView);
         applyFabSize(cancelView);
-        applyFabSize(termuxButton);
+        for (FloatingActionButton button : termuxButtons) applyFabSize(button);
         updateWaveformDimensions();
         waveformView.setScale(getControlScale());
         applyChildOrder();
@@ -407,10 +430,28 @@ public class FloatingService extends Service {
     }
 
     void updateTermuxButtonVisibility() {
-        int visibility = isDictating && showTermuxButton() ? View.VISIBLE : View.GONE;
-        if (termuxButton.getVisibility() != visibility) {
-            termuxButton.setVisibility(visibility);
-            repinToEdge();
+        rebuildTermuxButtons();
+        applyChildOrder();
+        repinToEdge();
+    }
+
+    private void rebuildTermuxButtons() {
+        termuxButtons.clear();
+        List<String> paths = TermuxScripts.parse(PreferenceManager.getDefaultSharedPreferences(this)
+                .getString("termux_script_path", ""));
+        // Keep the original button available so an unset path still explains how to configure it.
+        if (paths.isEmpty()) paths.add("");
+        for (int i = 0; i < paths.size(); i++) {
+            String path = paths.get(i);
+            FloatingActionButton button = createFab(R.drawable.ic_terminal);
+            button.setContentDescription(getString(R.string.stop_and_send_to_termux_script, i + 1, path));
+            button.setVisibility(isDictating && showTermuxButton() ? View.VISIBLE : View.GONE);
+            button.setOnClickListener(v -> {
+                if (!isDictating || isTranscribing) return;
+                v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                finishDictation(path);
+            });
+            termuxButtons.add(button);
         }
     }
 
@@ -440,7 +481,7 @@ public class FloatingService extends Service {
             }
             enterDictationMode();
         } else {
-            finishDictation(false);
+            finishDictation(null);
         }
     }
 
@@ -456,7 +497,7 @@ public class FloatingService extends Service {
     // Enter confirms the current dictation (stop, transcribe, type).
     void onConfirmKey() {
         mainHandler.post(() -> {
-            if (isDictating && !isTranscribing) finishDictation(false);
+            if (isDictating && !isTranscribing) finishDictation(null);
         });
     }
 
@@ -475,8 +516,7 @@ public class FloatingService extends Service {
         waveformView.clear();
         waveformView.setVisibility(View.VISIBLE);
         cancelView.setVisibility(View.VISIBLE);
-        termuxButton.setVisibility(showTermuxButton() ? View.VISIBLE : View.GONE);
-        repinToEdge();
+        updateTermuxButtonVisibility();
         startTranscriber();
     }
 
@@ -488,7 +528,7 @@ public class FloatingService extends Service {
         exitDictationMode();
     }
 
-    private void finishDictation(boolean sendToTermux) {
+    private void finishDictation(String scriptPath) {
         Transcriber current = transcriber;
         if (current != null) current.stop();
         restoreNonMicrophoneForegroundType();
@@ -497,10 +537,10 @@ public class FloatingService extends Service {
             showTranscriptionError(new Exception(getString(R.string.transcription_did_not_start)), null);
             return;
         }
-        finishTranscription(current, sendToTermux);
+        finishTranscription(current, scriptPath);
     }
 
-    private void finishTranscription(Transcriber current, boolean sendToTermux) {
+    private void finishTranscription(Transcriber current, String scriptPath) {
         enterTranscribingMode();
         String finishingMessage = current.getFinishingMessage();
         if (finishingMessage != null) {
@@ -511,8 +551,8 @@ public class FloatingService extends Service {
                 String text = current.finish();
                 mainHandler.post(() -> {
                     exitTranscribingMode();
-                    if (sendToTermux) {
-                        runTermuxScript(this, text);
+                    if (scriptPath != null) {
+                        runTermuxScript(this, text, scriptPath);
                     } else {
                         deliverTranscription(text);
                     }
@@ -523,15 +563,20 @@ public class FloatingService extends Service {
                     exitTranscribingMode();
                     if (!current.canRetry()) closeTranscriber(current);
                     showTranscriptionError(
-                            e, current.canRetry() ? current : null, sendToTermux);
+                            e, current.canRetry() ? current : null, scriptPath);
                 });
             }
         });
     }
 
     static void runTermuxScript(Context context, String text) {
-        String scriptPath = PreferenceManager.getDefaultSharedPreferences(context)
-                .getString("termux_script_path", "").trim();
+        runTermuxScript(context, text, TermuxScripts.first(
+                PreferenceManager.getDefaultSharedPreferences(context)
+                        .getString("termux_script_path", "")));
+    }
+
+    static void runTermuxScript(Context context, String text, String scriptPath) {
+        scriptPath = scriptPath.trim();
         if (scriptPath.startsWith("~/")) {
             scriptPath = TERMUX_HOME + scriptPath.substring(1);
         }
@@ -545,6 +590,7 @@ public class FloatingService extends Service {
                 != PackageManager.PERMISSION_GRANTED) {
             Intent permissionIntent = new Intent(context, TermuxPermissionActivity.class);
             permissionIntent.putExtra(TermuxPermissionActivity.EXTRA_TRANSCRIPTION, text);
+            permissionIntent.putExtra(TermuxPermissionActivity.EXTRA_SCRIPT_PATH, scriptPath);
             permissionIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(permissionIntent);
             return;
@@ -569,11 +615,11 @@ public class FloatingService extends Service {
     }
 
     private void showTranscriptionError(Exception error, Transcriber retryableTranscriber) {
-        showTranscriptionError(error, retryableTranscriber, false);
+        showTranscriptionError(error, retryableTranscriber, null);
     }
 
     private void showTranscriptionError(Exception error, Transcriber retryableTranscriber,
-            boolean sendToTermux) {
+            String scriptPath) {
         failedTranscriber = retryableTranscriber;
 
         TextView messageView = new TextView(themedContext);
@@ -595,7 +641,7 @@ public class FloatingService extends Service {
             builder.setPositiveButton(R.string.retry, (d, which) -> {
                 transcriptionErrorDialog = null;
                 failedTranscriber = null;
-                finishTranscription(retryableTranscriber, sendToTermux);
+                finishTranscription(retryableTranscriber, scriptPath);
             });
         }
         AlertDialog dialog = builder.create();
@@ -648,7 +694,7 @@ public class FloatingService extends Service {
         isDictating = false;
         resetFabToDefault();
         cancelView.setVisibility(View.GONE);
-        termuxButton.setVisibility(View.GONE);
+        termuxScroll.setVisibility(View.GONE);
         repinToEdge();
     }
 
@@ -685,7 +731,7 @@ public class FloatingService extends Service {
             public void onSpeechEnded() {
                 mainHandler.post(() -> {
                     if (isDictating && !isTranscribing && transcriber == session[0]) {
-                        finishDictation(false);
+                        finishDictation(null);
                     }
                 });
             }

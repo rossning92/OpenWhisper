@@ -8,15 +8,18 @@ import android.widget.Toast;
 public class TermuxPermissionActivity extends Activity {
     static final String RUN_COMMAND_PERMISSION = "com.termux.permission.RUN_COMMAND";
     static final String EXTRA_TRANSCRIPTION = "transcription";
+    static final String EXTRA_SCRIPT_PATH = "script_path";
     private static final int REQUEST_RUN_COMMAND = 1;
 
     private String transcription;
+    private String scriptPath;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         transcription = getIntent().getStringExtra(EXTRA_TRANSCRIPTION);
-        if (transcription == null) {
+        scriptPath = getIntent().getStringExtra(EXTRA_SCRIPT_PATH);
+        if (transcription == null || scriptPath == null) {
             finish();
             return;
         }
@@ -42,7 +45,7 @@ public class TermuxPermissionActivity extends Activity {
     }
 
     private void runTermuxScriptAndFinish() {
-        FloatingService.runTermuxScript(this, transcription);
+        FloatingService.runTermuxScript(this, transcription, scriptPath);
         finish();
     }
 }

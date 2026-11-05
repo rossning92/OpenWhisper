@@ -46,8 +46,16 @@ public class SettingsActivity extends AppCompatActivity {
             scriptPath.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
             scriptPath.setOnBindEditTextListener(edit -> {
                 edit.setInputType(InputType.TYPE_CLASS_TEXT
-                        | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-                edit.setSingleLine(true);
+                        | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+                edit.setMinLines(3);
+                edit.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+            });
+            scriptPath.setOnPreferenceChangeListener((pref, newValue) -> {
+                requireActivity().getWindow().getDecorView().post(() -> {
+                    FloatingService service = FloatingService.getInstance();
+                    if (service != null) service.updateTermuxButtonVisibility();
+                });
+                return true;
             });
             EditTextPreference dictionary = findPreference("custom_dictionary");
             dictionary.setOnBindEditTextListener(edit -> {
