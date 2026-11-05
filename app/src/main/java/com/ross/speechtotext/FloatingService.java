@@ -444,6 +444,9 @@ public class FloatingService extends Service {
         for (int i = 0; i < paths.size(); i++) {
             String path = paths.get(i);
             FloatingActionButton button = createFab(R.drawable.ic_terminal);
+            if (paths.size() >= 2) {
+                button.setImageDrawable(TermuxButtonIcon.numbered(getResources(), i + 1));
+            }
             button.setContentDescription(getString(R.string.stop_and_send_to_termux_script, i + 1, path));
             button.setVisibility(isDictating && showTermuxButton() ? View.VISIBLE : View.GONE);
             button.setOnClickListener(v -> {
