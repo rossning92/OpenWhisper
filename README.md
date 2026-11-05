@@ -20,7 +20,7 @@ Parakeet transcription streams while recording, so long dictations need little f
 - Voice detection: on-device Silero VAD 6.2 removes sustained silence before transcription while retaining short pauses and about 480 ms around speech boundaries. Enable "Auto-finish after speech" to also send after 1.5 seconds of silence following speech. Auto-finish is off by default; Send and X still work manually.
 - When no input field is focused: choose "Copy to clipboard" (default) or "Run Termux command" in Settings. Also applies when accessibility is unavailable. Changes take effect immediately.
 - Optional Termux action: set "Termux script paths" in Settings to one absolute path or `~/` path per line, e.g. `~/bin/handle_transcription.sh`. Requires Termux, your script, and permission to run Termux commands. The script runs with Bash from the Termux home directory and receives the transcription as its first argument. No path is configured by default; an unset or incorrectly formatted path shows an error. The first script is also used for the no-input-field action. Existing single paths keep working.
-- Direct Termux button: enable "Enable Termux send buttons" in Settings to show one terminal button per script while recording. Buttons follow the listed order from left to right on either screen edge. Swipe the row if needed. Each button transcribes and sends to its own script. Buttons are hidden by default.
+- Direct Termux button: configure script paths in Settings to show one terminal button per nonblank path while recording. Buttons follow the listed order from left to right on either screen edge. Swipe the row if needed. Each button transcribes and sends to its own script. Clear all script paths to hide the buttons.
 
 ## Development
 

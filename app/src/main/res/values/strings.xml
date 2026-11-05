@@ -20,8 +20,6 @@
     <string name="pref_no_input_title">When no input field is focused</string>
     <string name="pref_termux_path_title">Termux script paths</string>
     <string name="pref_termux_path_message">One script path per line, in left-to-right button order (absolute or ~/ paths). The first script is also used when no input field is focused. Scripts run with Bash from Termux home; transcription is the first argument. Swipe the buttons to reach more scripts.</string>
-    <string name="pref_termux_button_title">Enable Termux send buttons</string>
-    <string name="pref_termux_button_summary">While recording, show a send button for each script</string>
     <string name="pref_dictionary_title">Custom dictionary</string>
     <string name="pref_dictionary_message">One word or phrase per line, most important first. Qwen3-ASR uses spelling hints; Parakeet corrects similar English words and phrases after transcription. Clear the list to turn it off.</string>
     <string name="pref_dictionary_summary">Spelling hints for Qwen3-ASR; similar-word corrections for Parakeet</string>

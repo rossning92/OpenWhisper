@@ -350,7 +350,7 @@ public class FloatingService extends Service {
         termuxScroll.setLayoutParams(new LinearLayout.LayoutParams(
                 Math.min(available, termuxRow.getMeasuredWidth()),
                 LinearLayout.LayoutParams.WRAP_CONTENT));
-        termuxScroll.setVisibility(isDictating && showTermuxButton() ? View.VISIBLE : View.GONE);
+        termuxScroll.setVisibility(isDictating && !termuxButtons.isEmpty() ? View.VISIBLE : View.GONE);
         if (onLeft) {
             container.addView(floatingView, fabLayoutParams());
             container.addView(termuxScroll);
@@ -439,8 +439,6 @@ public class FloatingService extends Service {
         termuxButtons.clear();
         List<String> paths = TermuxScripts.parse(PreferenceManager.getDefaultSharedPreferences(this)
                 .getString("termux_script_path", ""));
-        // Keep the original button available so an unset path still explains how to configure it.
-        if (paths.isEmpty()) paths.add("");
         for (int i = 0; i < paths.size(); i++) {
             String path = paths.get(i);
             FloatingActionButton button = createFab(R.drawable.ic_terminal);
@@ -448,7 +446,7 @@ public class FloatingService extends Service {
                 button.setImageDrawable(TermuxButtonIcon.numbered(getResources(), i + 1));
             }
             button.setContentDescription(getString(R.string.stop_and_send_to_termux_script, i + 1, path));
-            button.setVisibility(isDictating && showTermuxButton() ? View.VISIBLE : View.GONE);
+            button.setVisibility(isDictating ? View.VISIBLE : View.GONE);
             button.setOnClickListener(v -> {
                 if (!isDictating || isTranscribing) return;
                 v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
@@ -456,11 +454,6 @@ public class FloatingService extends Service {
             });
             termuxButtons.add(button);
         }
-    }
-
-    private boolean showTermuxButton() {
-        return PreferenceManager.getDefaultSharedPreferences(this)
-                .getBoolean(MainActivity.KEY_SHOW_TERMUX_BUTTON, false);
     }
 
     private WindowManager.LayoutParams createOverlayLayoutParams(int layoutType, int flags) {

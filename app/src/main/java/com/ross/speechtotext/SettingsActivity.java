@@ -121,17 +121,6 @@ public class SettingsActivity extends AppCompatActivity {
                     return true;
                 });
             }
-            SwitchPreferenceCompat termuxButtonPref = findPreference(
-                    MainActivity.KEY_SHOW_TERMUX_BUTTON);
-            if (termuxButtonPref != null) {
-                termuxButtonPref.setOnPreferenceChangeListener((pref, newValue) -> {
-                    requireActivity().getWindow().getDecorView().post(() -> {
-                        FloatingService service = FloatingService.getInstance();
-                        if (service != null) service.updateTermuxButtonVisibility();
-                    });
-                    return true;
-                });
-            }
             SwitchPreferenceCompat accessibilityPref = findPreference("accessibility_status");
             if (accessibilityPref != null) {
                 accessibilityPref.setOnPreferenceChangeListener((pref, newValue) -> {
